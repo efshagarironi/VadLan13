@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "32.0"
+                  versionName "33.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -1380,7 +1380,7 @@ jobs:
               int bgBack = HOME;
 
               // open folder panel: swiping down closes the folder (once its own scroll is at the top);
-              // with the animation option off, swiping left / right opens the neighbor folder of the dock
+              // with the animation option off, swiping left opens the folder on its right, swiping right the one on its left
               class SwipePanel extends LinearLayout {
                   ScrollView sc;
                   boolean swipeOn = false;
@@ -1392,7 +1392,7 @@ jobs:
 
                   boolean sideOk(float dx) {
                       if (sp.getBoolean("fpAnim", true) || !fromDock || openFolder == null) return false;
-                      return dockNeighbor(openFolder, dx < 0) != null;
+                      return dockNeighbor(openFolder, dx > 0) != null;
                   }
 
                   boolean detect(MotionEvent ev) {
@@ -1429,7 +1429,7 @@ jobs:
                                   closeFolder();
                               } else if (mode == 2 && Math.abs(dx) > dp(60)) {
                                   fired = true;
-                                  String nid = dockNeighbor(openFolder, dx < 0);
+                                  String nid = dockNeighbor(openFolder, dx > 0);
                                   if (nid != null) openDockFolder(nid);
                               }
                           } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
@@ -3274,7 +3274,7 @@ jobs:
                   }
               }
 
-              // animation option off: swiping up on a closed dock folder opens it
+              // swiping up on a closed dock folder opens it at once, while the finger is still moving
               View.OnTouchListener swipeUpOpen(final View box, final String id) {
                   final float[] st = new float[2];
                   final boolean[] on = {false};
@@ -3284,18 +3284,16 @@ jobs:
                           st[0] = ev.getRawX();
                           st[1] = ev.getRawY();
                           on[0] = true;
-                      } else if (a == MotionEvent.ACTION_UP) {
-                          if (on[0]) {
-                              on[0] = false;
+                      } else if (a == MotionEvent.ACTION_MOVE) {
+                          if (on[0] && sel.isEmpty()) {
                               float dx = ev.getRawX() - st[0], dy = ev.getRawY() - st[1];
-                              if (!sp.getBoolean("fpAnim", true) && sel.isEmpty()
-                                      && dy < -dp(40) && Math.abs(dy) > Math.abs(dx) * 1.3f) {
-                                  // the touch ends here (no tap): the folder opens
+                              if (dy < -dp(24) && Math.abs(dy) > Math.abs(dx) * 1.3f) {
+                                  on[0] = false;
                                   ev.setAction(MotionEvent.ACTION_CANCEL);
-                                  w.post(() -> openFolderFrom(box, id, false));
+                                  if (!id.equals(openFolder)) w.post(() -> openFolderFrom(box, id, false));
                               }
                           }
-                      } else if (a == MotionEvent.ACTION_CANCEL) {
+                      } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
                           on[0] = false;
                       }
                       return false;
