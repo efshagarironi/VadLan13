@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "33.0"
+                  versionName "34.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -1355,7 +1355,7 @@ jobs:
                       glassBlurPct[1] = -1;
                       glassBlurSrc = mbgBmp;
                   }
-                  int p = sp.getInt(idx == 0 ? "glassBlur" : "glassBlur2", 5);
+                  int p = 5;
                   if (glassBlurBmp[idx] == null || glassBlurPct[idx] != p) {
                       glassBlurBmp[idx] = makeBlur(mbgBmp, p);
                       glassBlurPct[idx] = p;
@@ -1925,12 +1925,6 @@ jobs:
                   box.addView(toggleRowThen(0xFF26C6DA, "◇", t("کادر شیشه‌ای", "Glass boxes"),
                           t("کادرهای تنظیمات شیشه‌ای با بلور بسیار کم می‌شوند", "Settings boxes look like glass with a very light blur"),
                           "glass", false, fg, again));
-                  // blur of the glass boxes: main boxes, and the lighter boxes that sit inside other options
-                  IntConsumer liveGlass = lv -> { if (menuRoot != null) invalidateGlass(menuRoot); };
-                  box.addView(accordionRowL(0xFF26C6DA, "💧", t("مقدار بلور اصلی", "Main blur amount"),
-                          "glassBlur", 0, 100, 5, "%", fg, null, liveGlass));
-                  box.addView(accordionRowL(0xFF00ACC1, "💧", t("مقدار بلور فرعی", "Secondary blur amount"),
-                          "glassBlur2", 0, 100, 5, "%", fg, null, liveGlass));
                   box.addView(toggleRow(0xFFEF5350, "◻", t("شکل آیکون‌های سربرگ", "Header icons shape"),
                           t("آیکون‌ها بدون دایره و داخل کادر مثل کادر شمارش", "Icons sit in boxes like the counters, not circles"),
                           "topIconBox", false, fg));
