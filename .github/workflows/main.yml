@@ -96,7 +96,7 @@ jobs:
                   minSdk 26
                   targetSdk 34
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "45.0"
+                  versionName "45.1"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -676,7 +676,6 @@ jobs:
           }
           }
           EOF
-
           cat > app/src/main/java/com/mylauncher/MainActivity.java <<'EOF'
           package com.mylauncher;
 
@@ -952,6 +951,26 @@ jobs:
           Button addBtn;
 
           String t(String f, String e) { return fa ? f : e; }
+
+          Runnable topFix;
+
+          int statusH() {
+          int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
+          return id > 0 ? getResources().getDimensionPixelSize(id) : dp(24);
+          }
+
+          int calcTop(WindowInsets ins) {
+          int top = ins.getSystemWindowInsetTop();
+          if (Build.VERSION.SDK_INT >= 28) {
+          DisplayCutout dc = ins.getDisplayCutout();
+          if (dc != null) top = Math.max(top, dc.getSafeInsetTop());
+          }
+          return Math.max(top, statusH());
+          }
+
+          void saveIns(String k, int v) {
+          if (sp.getInt(k, -1) != v) sp.edit().putInt(k, v).apply();
+          }
 
           @Override
           protected void onCreate(Bundle b) {
@@ -2349,8 +2368,15 @@ jobs:
           v.setLayoutDirection(fa ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
           if (page != HOME) {
           final int pl = v.getPaddingLeft(), pt0 = v.getPaddingTop(), pr = v.getPaddingRight(), pb0 = v.getPaddingBottom();
+          final int gap = dp(6);
+          v.setPadding(pl, pt0 + sp.getInt("setT", statusH() + gap), pr,
+          pb0 + (sp.contains("insB") ? sp.getInt("insB", 0) : 0));
           v.setOnApplyWindowInsetsListener((x, ins) -> {
-          x.setPadding(pl, pt0 + ins.getSystemWindowInsetTop(), pr, pb0 + ins.getSystemWindowInsetBottom());
+          int top = calcTop(ins) + gap;
+          int bot = ins.getSystemWindowInsetBottom();
+          saveIns("setT", top);
+          saveIns("insB", bot);
+          x.setPadding(pl, pt0 + top, pr, pb0 + bot);
           return ins;
           });
           }
@@ -2364,6 +2390,7 @@ jobs:
           int from = shownPage;
           shownPage = page;
           swap(v, transDir(from, page));
+          v.post(() -> v.requestApplyInsets());
           }
 
           View homePage(final int fg) {
@@ -2385,7 +2412,9 @@ jobs:
           root.setOrientation(LinearLayout.VERTICAL);
           root.setBackgroundColor(pbg());
           root.setClipChildren(false);
-          root.setPadding(dp(12), dp(24), dp(12), dp(8));
+          topFix = null;
+          root.setPadding(dp(12), sp.getInt("homeT", dp(24)), dp(12),
+          sp.contains("insB") ? sp.getInt("insB", 0) + dp(2) : dp(8));
           root.requestApplyInsets();
           root.setOnApplyWindowInsetsListener((v, ins) -> {
           int top = ins.getSystemWindowInsetTop(), bot = ins.getSystemWindowInsetBottom();
@@ -2393,8 +2422,13 @@ jobs:
           DisplayCutout dc = ins.getDisplayCutout();
           if (dc != null && dc.getSafeInsetTop() > 0) top = dc.getSafeInsetTop() + dp(6);
           }
+          saveIns("homeT", top);
+          saveIns("insB", bot);
           v.setPadding(dp(12), top, dp(12), bot + dp(2));
-          v.post(() -> v.requestLayout());
+          v.post(() -> {
+          v.requestLayout();
+          if (topFix != null) topFix.run();
+          });
           return ins;
           });
           FrameLayout head = new FrameLayout(this);
@@ -2508,13 +2542,17 @@ jobs:
           LinearLayout.LayoutParams midLp = new LinearLayout.LayoutParams(-1, 0, 1);
           midLp.topMargin = Math.max(tyf, 0);
           root.addView(mid, midLp);
-          if (tyf < 0) root.post(() -> {
+          topFix = () -> {
+          if (tyf >= 0) return;
           int m = Math.max(tyf, -Math.max(0, root.getPaddingTop() - dp(2)));
           head.setTranslationY(m);
           LinearLayout.LayoutParams l = (LinearLayout.LayoutParams) mid.getLayoutParams();
+          if (l.topMargin != m) {
           l.topMargin = m;
           mid.setLayoutParams(l);
-          });
+          }
+          };
+          root.post(topFix);
           updateSel();
           if (ovLayer != null) {
           FrameLayout outer = new FrameLayout(this);
