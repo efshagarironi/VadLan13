@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "37.0"
+                  versionName "38.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -3434,19 +3434,18 @@ jobs:
                       addView(rb, new FrameLayout.LayoutParams(-1, -2));
                   }
 
+                  // the rows are given the whole height before the page is measured
                   @Override
-                  protected void onSizeChanged(int w, int h, int ow, int oh) {
-                      super.onSizeChanged(w, h, ow, oh);
+                  protected void onMeasure(int wSpec, int hSpec) {
+                      int h = View.MeasureSpec.getSize(hSpec);
                       int ch = Math.max(dp(16), (h - topPad - botPad) / Math.max(1, rows));
                       for (int r = 0; r < rowsBox.getChildCount(); r++) {
                           ViewGroup row = (ViewGroup) rowsBox.getChildAt(r);
                           for (int k = 0; k < row.getChildCount(); k++) {
-                              View cv = row.getChildAt(k);
-                              ViewGroup.LayoutParams lp = cv.getLayoutParams();
-                              lp.height = ch;
-                              cv.setLayoutParams(lp);
+                              row.getChildAt(k).getLayoutParams().height = ch;
                           }
                       }
+                      super.onMeasure(wSpec, hSpec);
                   }
               }
 
@@ -3454,6 +3453,12 @@ jobs:
                              int ts, int fts, int rowGapPx) {
                   normalizePages();
                   final int pgRows = Math.max(4, Math.min(20, sp.getInt("pgRows", 7)));
+                  // with many rows the icons and names shrink so that the rows never overlap
+                  int est = (getResources().getDisplayMetrics().heightPixels - dp(200) - dockReserve()) / pgRows;
+                  int maxIc = Math.max(dp(18), est - (hide ? dp(8) : dp(24)));
+                  iconPx = Math.min(iconPx, maxIc);
+                  folderPx = Math.min(folderPx, maxIc);
+                  if (est < dp(44)) { ts = Math.min(ts, 9); fts = Math.min(fts, 9); }
                   int n = pageCount();
                   hpCur = Math.max(0, Math.min(hpCur, n - 1));
                   final Pager pg = new Pager(this, n);
