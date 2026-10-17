@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "48.0"
+                  versionName "47.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -1300,8 +1300,7 @@ jobs:
                       Bitmap src = BitmapFactory.decodeStream(in2, null, o2);
                       in2.close();
                       if (src == null) throw new Exception("decode");
-                      String fn = rc == REQ_IMG ? "bg_src.jpg" : (rc == REQ_FIMG ? "hf_src.jpg"
-                              : (rc == REQ_TIMG ? "tb_src.jpg" : "menu_src.jpg"));
+                      String fn = rc == REQ_IMG ? "bg_src.jpg" : (rc == REQ_FIMG ? "hf_src.jpg"                              : (rc == REQ_TIMG ? "tb_src.jpg" : "menu_src.jpg"));
                       FileOutputStream fo = new FileOutputStream(new File(getFilesDir(), fn));
                       src.compress(Bitmap.CompressFormat.JPEG, 92, fo);
                       fo.close();
@@ -1722,35 +1721,6 @@ jobs:
                   int r = 0;
                   if (sp.getBoolean("dockOn1", true)) r += dp(sp.getInt("dockH1", 90)) + dp(8) + dockShift();
                   return r;
-              }
-
-              // top / bottom space that the camera, the status bar and the navigation keys take: {top, bottom} (px)
-              // top = the lower of the status bar and the camera cut-out, plus a small gap
-              int[] sysInsets(WindowInsets ins) {
-                  int top = 0, bot = 0;
-                  try {
-                      if (ins == null) ins = getWindow().getDecorView().getRootWindowInsets();
-                      if (ins != null) {
-                          top = ins.getSystemWindowInsetTop();
-                          bot = ins.getSystemWindowInsetBottom();
-                          if (Build.VERSION.SDK_INT >= 28) {
-                              DisplayCutout dc = ins.getDisplayCutout();
-                              if (dc != null) top = Math.max(top, dc.getSafeInsetTop());
-                          }
-                      }
-                  } catch (Throwable e) { }
-                  if (top <= 0) {
-                      int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
-                      top = id > 0 ? getResources().getDimensionPixelSize(id) : dp(28);
-                  }
-                  return new int[]{top + dp(6), bot};
-              }
-
-              // space between the frame side and the icons = space between two icons side by side
-              int hPad(int iconW, int cols) {
-                  int w = getResources().getDisplayMetrics().widthPixels - dp(24);
-                  int g = (w - cols * iconW) / (cols + 1);
-                  return Math.max(0, g / 2);
               }
 
               // dock position: > 0 = raised (mm), 0 = now, lowest = the small gap above the navigation keys
@@ -2412,6 +2382,24 @@ jobs:
                   }
               }
 
+              // safe top / bottom space of the settings pages (camera cutout + status bar, small gap below)
+              int[] safeInsets(WindowInsets ins) {
+                  int top = 0, bot = 0;
+                  if (ins != null) {
+                      top = ins.getSystemWindowInsetTop();
+                      bot = ins.getSystemWindowInsetBottom();
+                      if (Build.VERSION.SDK_INT >= 28) {
+                          DisplayCutout dc = ins.getDisplayCutout();
+                          if (dc != null) top = Math.max(top, dc.getSafeInsetTop());
+                      }
+                  }
+                  if (top <= 0) {
+                      int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
+                      if (id > 0) top = getResources().getDimensionPixelSize(id);
+                  }
+                  return new int[]{top + dp(10), bot};
+              }
+
               void show() {
                   boolean mp = menuPage();
                   int fg = 0xFFFFFFFF;
@@ -2463,15 +2451,15 @@ jobs:
                   if (page != HOME) {
                       // settings pages keep their content between the status bar and the navigation keys themselves
                       final int pl = v.getPaddingLeft(), pt0 = v.getPaddingTop(), pr = v.getPaddingRight(), pb0 = v.getPaddingBottom();
-                      int[] si0 = sysInsets(null);
-                      v.setPadding(pl, pt0 + si0[0], pr, pb0 + si0[1]);
                       v.setOnApplyWindowInsetsListener((x, ins) -> {
-                          int[] si = sysInsets(ins);
-                          x.setPadding(pl, pt0 + si[0], pr, pb0 + si[1]);
+                          int[] sb = safeInsets(ins);
+                          x.setPadding(pl, pt0 + sb[0], pr, pb0 + sb[1]);
                           return ins;
                       });
-                      final View vq = v;
-                      v.post(() -> vq.requestApplyInsets());
+                      // first guess right away, so the page never starts under the camera
+                      int[] s0 = safeInsets(getWindow().getDecorView().getRootWindowInsets());
+                      v.setPadding(pl, pt0 + s0[0], pr, pb0 + s0[1]);
+                      v.requestApplyInsets();
                   }
                   menuRoot = mp ? v : null;
                   if (mp) v.setBackground(menuBgDrawable());
@@ -3529,12 +3517,11 @@ jobs:
                   LinearLayout rowsBox;
                   int rows, topPad, botPad;
 
-                  int content, hp;
+                  int content;
 
-                  GridPage(Context c, LinearLayout rb, int rows, int topPad, int botPad, int content, int hp) {
+                  GridPage(Context c, LinearLayout rb, int rows, int topPad, int botPad, int content) {
                       super(c);
                       this.content = content;
-                      this.hp = hp;
                       this.rowsBox = rb;
                       this.rows = rows;
                       this.topPad = topPad;
@@ -3552,7 +3539,7 @@ jobs:
                       int ch, off;
                       if (g >= 0) { ch = content + g; off = g / 2; }
                       else { ch = Math.max(dp(16), avail / Math.max(1, rows)); off = 0; }
-                      rowsBox.setPadding(hp, topPad + off, hp, 0);
+                      rowsBox.setPadding(0, topPad + off, 0, 0);
                       for (int r = 0; r < rowsBox.getChildCount(); r++) {
                           ViewGroup row = (ViewGroup) rowsBox.getChildAt(r);
                           for (int k = 0; k < row.getChildCount(); k++) {
@@ -3573,8 +3560,7 @@ jobs:
                   folderPx = dp(sp.getBoolean("folderSync", false) ? isz : sp.getInt("folderSz", 56));
                   ts = sp.getInt("nameSz", 12);
                   fts = sp.contains("fpTsBot") ? sp.getInt("fpTsBot", 12) : ts;
-                  final int hpd = hPad(Math.max(iconPx, folderPx), cols);
-                  final int cH = Math.max(iconPx, folderPx)
+                  final int cH = Math.max(iconPx, folderPx) + dp(8)
                           + (hide ? 0 : dp(4) + (int) (Math.max(ts, fts) * getResources().getDisplayMetrics().scaledDensity * 1.25f));
                   int n = pageCount();
                   hpCur = Math.max(0, Math.min(hpCur, n - 1));
@@ -3596,8 +3582,8 @@ jobs:
                       LinearLayout rowsBox = buildRows(views, cols, dp(60), 0);
                       rowsBox.setPadding(0, dp(8), 0, 0);
                       rowsBox.setClipChildren(false);
-                      GridPage page = new GridPage(this, rowsBox, pgRows, 0,
-                              sp.getBoolean("hfOn", false) ? 0 : dockReserve(), cH, hpd);
+                      GridPage page = new GridPage(this, rowsBox, pgRows, dp(8),
+                              sp.getBoolean("hfOn", false) ? dp(16) : dockReserve() + dp(20), cH);
                       page.setClipChildren(false);
                       final int pi = p;
                       page.setOnDragListener((w, ev) -> {
@@ -3652,9 +3638,6 @@ jobs:
                           Math.max(iconPx, folderPx) + (hide ? dp(10) : dp(30)));
                   int ts = sp.contains("nameSz") ? sp.getInt("nameSz", 12) : (cols <= 5 ? 12 : (cols <= 8 ? 10 : 8));
                   int fts = sp.contains("fpTsBot") ? sp.getInt("fpTsBot", 12) : ts;
-                  final int cH0 = Math.max(iconPx, folderPx)
-                          + (hide ? 0 : dp(4) + (int) (Math.max(ts, fts) * dm.scaledDensity * 1.25f));
-                  final int hp0 = hPad(Math.max(iconPx, folderPx), cols);
                   hpPager = null;
                   if (pagedMode()) return pagedGrid(fg, cols, cellH, iconPx, folderPx, hide, folderNames, ts, fts, rowGapPx);
 
@@ -3740,11 +3723,14 @@ jobs:
                   }
                   LinearLayout rowsBox = buildRows(views, cols, cellH, rowGapPx);
                   // the first row moves away from / toward the top frame line by the same amount as the rows below it
-                  int halfV = Math.max(0, (cellH - cH0) / 2);
-                  int firstTop = halfV + rowGapPx;
+                  // top and bottom distance = the same gap that lies between two rows of icons
+                  int contentH = Math.max(iconPx, folderPx) + dp(8)
+                          + (hide ? 0 : dp(4) + (int) (Math.max(ts, fts) * dm.scaledDensity * 1.25f));
+                  int edgeGap = Math.max(0, cellH - contentH) / 2;
+                  int firstTop = edgeGap + rowGapPx;
                   int firstNeg = 0;
                   if (firstTop < 0) { firstNeg = firstTop; firstTop = 0; }
-                  rowsBox.setPadding(hp0, firstTop + (fadeTop ? dres + fadeLen : 0), hp0, Math.max(0, halfV + rowGapPx) + (fadeTop ? 0 : dres));
+                  rowsBox.setPadding(0, firstTop + (fadeTop ? dres + fadeLen : 0), 0, Math.max(0, edgeGap + rowGapPx) + (fadeTop ? 0 : dres));
                   rowsBox.setClipChildren(false);
                   col.setClipChildren(false);
                   if (firstNeg < 0 && rowsBox.getChildCount() > 0) {
@@ -3947,7 +3933,7 @@ jobs:
                       if (wrap == null || !(wrap.getParent() instanceof ViewGroup)) return false;
                       ViewGroup mid = (ViewGroup) wrap.getParent();
                       List<View> cl = cells.get("folder:" + id);
-                      boolean found = false;
+                                            boolean found = false;
                       if (cl != null) {
                           for (View c : cl) {
                               View b = findTag(c, "fb");
@@ -5250,7 +5236,7 @@ jobs:
                           case DragEvent.ACTION_DRAG_ENDED:
                               w.setAlpha(1f);
                               return true;
-                          case DragEvent.ACTION_DROP:
+                                                        case DragEvent.ACTION_DROP:
                               w.setAlpha(1f);
                               addToDock(ev.getClipData().getItemAt(0).getText().toString());
                               return true;
