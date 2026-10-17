@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "43.0"
+                  versionName "44.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -2370,7 +2370,7 @@ jobs:
                   int barC = mp ? solid(mbg()) : (bgBmp != null ? 0 : solid(bg));
                   // home page: the page reaches under the status bar / camera and the navigation bar (the toolbar and the dock
                   // are moved by the insets listener); settings pages keep the normal layout
-                  boolean edge = page == HOME;
+                  boolean edge = true; // same window mode on every page: nothing resizes while the settings page slides
                   getWindow().setStatusBarColor(edge ? 0 : barC);
                   getWindow().setNavigationBarColor(edge ? 0 : barC);
                   getWindow().getDecorView().setSystemUiVisibility(edge
@@ -2410,6 +2410,14 @@ jobs:
                   else if (page == RESTORE) v = restorePage(fg);
                   else v = homePage(fg);
                   v.setLayoutDirection(fa ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+                  if (page != HOME) {
+                      // settings pages keep their content between the status bar and the navigation keys themselves
+                      final int pl = v.getPaddingLeft(), pt0 = v.getPaddingTop(), pr = v.getPaddingRight(), pb0 = v.getPaddingBottom();
+                      v.setOnApplyWindowInsetsListener((x, ins) -> {
+                          x.setPadding(pl, pt0 + ins.getSystemWindowInsetTop(), pr, pb0 + ins.getSystemWindowInsetBottom());
+                          return ins;
+                      });
+                  }
                   menuRoot = mp ? v : null;
                   if (mp) v.setBackground(menuBgDrawable());
                   baseSz.clear();
