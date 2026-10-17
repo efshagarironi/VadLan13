@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "36.0"
+                  versionName "37.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -3071,7 +3071,7 @@ jobs:
 
               boolean pagedMode() { return !sp.getBoolean("hpScroll", true); }
 
-              int pageCap() { return Math.max(1, sp.getInt("gridCols", 4) * 7); }
+              int pageCap() { return Math.max(1, sp.getInt("gridCols", 4) * Math.max(4, Math.min(20, sp.getInt("pgRows", 7)))); }
 
               boolean visibleItem(Item it) { return it.folder ? !it.docked : (it.pkg != null && installed(it.pkg)); }
 
@@ -3420,9 +3420,40 @@ jobs:
                   return c;
               }
 
+              // one page of icons: the rows share the whole height of the frame, so more rows = icons closer together
+              class GridPage extends FrameLayout {
+                  LinearLayout rowsBox;
+                  int rows, topPad, botPad;
+
+                  GridPage(Context c, LinearLayout rb, int rows, int topPad, int botPad) {
+                      super(c);
+                      this.rowsBox = rb;
+                      this.rows = rows;
+                      this.topPad = topPad;
+                      this.botPad = botPad;
+                      addView(rb, new FrameLayout.LayoutParams(-1, -2));
+                  }
+
+                  @Override
+                  protected void onSizeChanged(int w, int h, int ow, int oh) {
+                      super.onSizeChanged(w, h, ow, oh);
+                      int ch = Math.max(dp(16), (h - topPad - botPad) / Math.max(1, rows));
+                      for (int r = 0; r < rowsBox.getChildCount(); r++) {
+                          ViewGroup row = (ViewGroup) rowsBox.getChildAt(r);
+                          for (int k = 0; k < row.getChildCount(); k++) {
+                              View cv = row.getChildAt(k);
+                              ViewGroup.LayoutParams lp = cv.getLayoutParams();
+                              lp.height = ch;
+                              cv.setLayoutParams(lp);
+                          }
+                      }
+                  }
+              }
+
               View pagedGrid(int fg, int cols, int cellH, int iconPx, int folderPx, boolean hide, boolean folderNames,
                              int ts, int fts, int rowGapPx) {
                   normalizePages();
+                  final int pgRows = Math.max(4, Math.min(20, sp.getInt("pgRows", 7)));
                   int n = pageCount();
                   hpCur = Math.max(0, Math.min(hpCur, n - 1));
                   final Pager pg = new Pager(this, n);
@@ -3440,18 +3471,12 @@ jobs:
                           views.add(c);
                       }
                       if (!views.isEmpty()) any = true;
-                      LinearLayout rowsBox = buildRows(views, cols, cellH, rowGapPx);
-                      int firstTop = dp(12) + rowGapPx;
-                      int firstNeg = 0;
-                      if (firstTop < 0) { firstNeg = firstTop; firstTop = 0; }
-                      rowsBox.setPadding(0, firstTop, 0, 0);
+                      LinearLayout rowsBox = buildRows(views, cols, dp(60), 0);
+                      rowsBox.setPadding(0, dp(8), 0, 0);
                       rowsBox.setClipChildren(false);
-                      if (firstNeg < 0 && rowsBox.getChildCount() > 0) {
-                          ((LinearLayout.LayoutParams) rowsBox.getChildAt(0).getLayoutParams()).topMargin = firstNeg;
-                      }
-                      FrameLayout page = new FrameLayout(this);
+                      GridPage page = new GridPage(this, rowsBox, pgRows, dp(8),
+                              sp.getBoolean("hfOn", false) ? dp(16) : dockReserve() + dp(20));
                       page.setClipChildren(false);
-                      page.addView(rowsBox, new FrameLayout.LayoutParams(-1, -2));
                       final int pi = p;
                       page.setOnDragListener((w, ev) -> {
                           if (ev.getAction() == DragEvent.ACTION_DROP) {
@@ -5822,7 +5847,9 @@ jobs:
 
                   l.add(accordionRow(0xFF9C27B0, "↔", t("ردیف عمودی", "Vertical rows"), "gridCols", 4, 20, 4, "", fg, null));
                   // the first row follows the row spacing too
-                  l.add(accordionRow(0xFF607D8B, "↕", t("ردیف افقی", "Horizontal rows"), "gridGap", -6, 8, 0, " mm", fg, null));
+                  // pages off: number of rows from the top to the bottom of the frame (spacing follows); pages on: spacing in mm
+                  if (pagedMode()) l.add(accordionRow(0xFF607D8B, "↕", t("ردیف افقی", "Horizontal rows"), "pgRows", 4, 20, 7, "", fg, null));
+                  else l.add(accordionRow(0xFF607D8B, "↕", t("ردیف افقی", "Horizontal rows"), "gridGap", -6, 8, 0, " mm", fg, null));
 
                   final boolean hide = sp.getBoolean("hideNames", false);
                   l.add(row(0xFFAB47BC, "🏷", t("حذف نام برنامه", "Hide app names"),
