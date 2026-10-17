@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "38.0"
+                  versionName "40.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -2510,10 +2510,10 @@ jobs:
                   }
                   mid.addView(gv, gvp);
                   if (hpPager != null) {
-                      FrameLayout.LayoutParams e1 = new FrameLayout.LayoutParams(dp(16), -1, Gravity.LEFT);
+                      FrameLayout.LayoutParams e1 = new FrameLayout.LayoutParams(dp(12), -1, Gravity.LEFT);
                       e1.bottomMargin = dockReserve();
                       mid.addView(edgeStrip(true), e1);
-                      FrameLayout.LayoutParams e2 = new FrameLayout.LayoutParams(dp(16), -1, Gravity.RIGHT);
+                      FrameLayout.LayoutParams e2 = new FrameLayout.LayoutParams(dp(12), -1, Gravity.RIGHT);
                       e2.bottomMargin = dockReserve();
                       mid.addView(edgeStrip(false), e2);
                   }
@@ -3067,7 +3067,7 @@ jobs:
               // option "Horizontal pages" on = one home page that scrolls down; off = several pages (swipe left / right, endless)
               int hpCur = 0;
               Pager hpPager;
-              boolean hpNavigated = false;
+              boolean hpNavigated = false, hpArmed = false;
 
               boolean pagedMode() { return !sp.getBoolean("hpScroll", true); }
 
@@ -3222,12 +3222,19 @@ jobs:
                   final Runnable[] nav = new Runnable[1];
                   nav[0] = () -> {
                       if (hpPager != null && hpPager.step(left ? 1 : -1)) { hpNavigated = true; vib(15); }
+                      else if (left && hpPager != null && hpPager.anim == null && hpPager.cur == hpPager.n - 1 && !hpArmed) {
+                          // holding on the left edge of the last page: a new page is ready, it opens when the icon is dropped
+                          hpArmed = true;
+                          v.setBackgroundColor(0x8834C759);
+                          vib(25);
+                      }
                       v.postDelayed(nav[0], 800);
                   };
                   v.setOnDragListener((w, ev) -> {
                       switch (ev.getAction()) {
                           case DragEvent.ACTION_DRAG_STARTED:
                               hpNavigated = false;
+                              hpArmed = false;
                               if (hpPager == null) return false;
                               w.setBackgroundColor(0x22FFFFFF);
                               return true;
@@ -3237,6 +3244,7 @@ jobs:
                               return true;
                           case DragEvent.ACTION_DRAG_EXITED:
                               w.removeCallbacks(nav[0]);
+                              hpArmed = false;
                               w.setBackgroundColor(0x22FFFFFF);
                               return true;
                           case DragEvent.ACTION_DRAG_ENDED:
@@ -3246,9 +3254,11 @@ jobs:
                           case DragEvent.ACTION_DROP:
                               w.removeCallbacks(nav[0]);
                               w.setBackgroundColor(0);
+                              boolean wasArmed = hpArmed;
+                              hpArmed = false;
                               if (hpPager == null) return false;
                               String pl = ev.getClipData().getItemAt(0).getText().toString();
-                              if (left && !hpNavigated) dropNewPage(pl);
+                              if (left && wasArmed) dropNewPage(pl);
                               else dropOnPage(pl, hpPager.cur);
                               return true;
                       }
@@ -3453,12 +3463,12 @@ jobs:
                              int ts, int fts, int rowGapPx) {
                   normalizePages();
                   final int pgRows = Math.max(4, Math.min(20, sp.getInt("pgRows", 7)));
-                  // with many rows the icons and names shrink so that the rows never overlap
-                  int est = (getResources().getDisplayMetrics().heightPixels - dp(200) - dockReserve()) / pgRows;
-                  int maxIc = Math.max(dp(18), est - (hide ? dp(8) : dp(24)));
-                  iconPx = Math.min(iconPx, maxIc);
-                  folderPx = Math.min(folderPx, maxIc);
-                  if (est < dp(44)) { ts = Math.min(ts, 9); fts = Math.min(fts, 9); }
+                  // icon and name sizes are only the ones chosen by hand in the Icon settings (nothing shrinks or grows by itself)
+                  int isz = sp.getInt("iconSz", 56);
+                  iconPx = dp(isz);
+                  folderPx = dp(sp.getBoolean("folderSync", false) ? isz : sp.getInt("folderSz", 56));
+                  ts = sp.getInt("nameSz", 12);
+                  fts = sp.contains("fpTsBot") ? sp.getInt("fpTsBot", 12) : ts;
                   int n = pageCount();
                   hpCur = Math.max(0, Math.min(hpCur, n - 1));
                   final Pager pg = new Pager(this, n);
