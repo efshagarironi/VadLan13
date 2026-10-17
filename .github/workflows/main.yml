@@ -1068,6 +1068,32 @@ jobs:
                   show();
               }
 
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus && container != null && container.getChildCount() > 0) {
+                      container.getChildAt(container.getChildCount() - 1).requestApplyInsets();
+                  }
+              }
+
+              // top / bottom space of the home page: the same numbers are used for the first build and for the real insets
+              int[] homeInsets(WindowInsets ins) {
+                  if (ins == null) ins = getWindow().getDecorView().getRootWindowInsets();
+                  int top = 0, bot = 0;
+                  if (ins != null) {
+                      top = ins.getSystemWindowInsetTop();
+                      bot = ins.getSystemWindowInsetBottom();
+                      if (Build.VERSION.SDK_INT >= 28) {
+                          DisplayCutout dc = ins.getDisplayCutout();
+                          if (dc != null && dc.getSafeInsetTop() > 0) top = dc.getSafeInsetTop() + dp(6);
+                      }
+                  } else {
+                      int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
+                      if (id > 0) top = getResources().getDimensionPixelSize(id);
+                  }
+                  return new int[]{top, bot};
+              }
+
               private void checkMockIntent(Intent in) {
                   if (in != null && in.getBooleanExtra("open_mock_settings", false)) {
                       page = MOCK;
@@ -2496,18 +2522,18 @@ jobs:
                   root.setClipChildren(false);
                   // the top toolbar sits a little below the front camera and the dock a little above the navigation bar
                   // (the home frame grows by the freed space); the real insets replace this first guess
-                  root.setPadding(dp(12), dp(24), dp(12), dp(8));
-                  root.requestApplyInsets();
+                  int[] hi0 = homeInsets(null);
+                  root.setPadding(dp(12), hi0[0], dp(12), hi0[1] + dp(2));
                   root.setOnApplyWindowInsetsListener((v, ins) -> {
-                      int top = ins.getSystemWindowInsetTop(), bot = ins.getSystemWindowInsetBottom();
-                      if (Build.VERSION.SDK_INT >= 28) {
-                          DisplayCutout dc = ins.getDisplayCutout();
-                          if (dc != null && dc.getSafeInsetTop() > 0) top = dc.getSafeInsetTop() + dp(6);
-                      }
-                      v.setPadding(dp(12), top, dp(12), bot + dp(2));
+                      int[] hi = homeInsets(ins);
+                      v.setPadding(dp(12), hi[0], dp(12), hi[1] + dp(2));
                       applyTopShift(v);
                       v.post(() -> v.requestLayout());
                       return ins;
+                  });
+                  root.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+                      @Override public void onViewAttachedToWindow(View v) { v.requestApplyInsets(); }
+                      @Override public void onViewDetachedFromWindow(View v) { }
                   });
                   FrameLayout head = new FrameLayout(this);
                   headV = head;
