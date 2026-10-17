@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "34.0"
+                  versionName "36.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -714,7 +714,7 @@ jobs:
           public class MainActivity extends Activity {
               static final int HOME = 0, SETTINGS = 1, BG = 2, BEHAVIOR = 3, LANG = 4, PICKER = 5,
                       DOCK = 6, ICON = 8, MOCK = 9, FOLDER = 10, BACKUP = 11, RESTORE = 12,
-                      FONT = 13, FGRP = 14, FPICK = 15, DOCKBG = 16, HPAGE = 17, HFBG = 18, MBG = 19, TBG = 20, TBAR = 21;
+                      FONT = 13, FGRP = 14, FPICK = 15, DOCKBG = 16, HPAGE = 17, HFBG = 18, MBG = 19, TBG = 20, TBAR = 21, MBOX = 22, SBOX = 23;
               static final int DLG = 0xFFEEEEEE;
               static final int REQ_IMG = 77, REQ_FIMG = 78, REQ_MIMG = 79, REQ_TIMG = 80;
 
@@ -724,6 +724,7 @@ jobs:
                   boolean folder, docked;
                   String pkg, id, name = "";
                   int color = 0x3A28282C;
+                  int page = -1;
                   List<String> apps = new ArrayList<>();
               }
 
@@ -1124,7 +1125,7 @@ jobs:
                   } else if (page == HFBG) {
                       page = HPAGE;
                       show();
-                  } else if (page == MBG || page == TBG) {
+                  } else if (page == MBG || page == TBG || page == MBOX || page == SBOX) {
                       page = bgBack;
                       bgBack = HOME;
                       show();
@@ -1522,15 +1523,17 @@ jobs:
 
               // background of every settings box: plain rounded box, or glass when the option is on
               Drawable boxBg(int plain, int rDp) {
+                  final String ck = boxFade < 1f ? "boxSub" : "boxMain";
+                  final boolean has = sp.contains(ck);
                   if (!glass()) {
                       GradientDrawable g = new GradientDrawable();
                       g.setCornerRadius(dp(rDp));
-                      g.setColor(scaleA(plain, boxFade));
+                      g.setColor(has ? sp.getInt(ck, 0) : scaleA(plain, boxFade));
                       return g;
                   }
-                  Glass gl = new Glass(light() ? 0x44FFFFFF : 0x26FFFFFF, dp(rDp), null);
+                  Glass gl = new Glass(has ? sp.getInt(ck, 0) : (light() ? 0x44FFFFFF : 0x26FFFFFF), dp(rDp), null);
                   gl.blurOn = menuPage() && mbgBmp != null;
-                  gl.fade = boxFade;
+                  gl.fade = has ? 1f : boxFade;
                   return gl;
               }
 
@@ -1577,16 +1580,20 @@ jobs:
                           } else {
                               it.pkg = o.getString("p");
                           }
+                          it.page = o.optInt("pg", -1);
                           home.add(it);
                       }
                   } catch (Exception e) { }
+                  normalizePages();
               }
 
               void saveHome() {
+                  normalizePages();
                   try {
                       JSONArray a = new JSONArray();
                       for (Item it : home) {
                           JSONObject o = new JSONObject();
+                          if (it.page >= 0) o.put("pg", it.page);
                           if (it.folder) {
                               o.put("id", it.id);
                               o.put("n", it.name);
@@ -1925,6 +1932,13 @@ jobs:
                   box.addView(toggleRowThen(0xFF26C6DA, "◇", t("کادر شیشه‌ای", "Glass boxes"),
                           t("کادرهای تنظیمات شیشه‌ای با بلور بسیار کم می‌شوند", "Settings boxes look like glass with a very light blur"),
                           "glass", false, fg, again));
+                  // color and transparency of the main boxes, and of the lighter boxes inside other options
+                  box.addView(row(0xFF26C6DA, "🎨", t("رنگ کادر اصلی", "Main box color"),
+                          t("رنگ و شفافیت کادرهای اصلی", "Color and transparency of the main boxes"), 0, fg,
+                          x -> goBgPage(MBOX, dlg)));
+                  box.addView(row(0xFF00ACC1, "🎨", t("رنگ کادر فرعی", "Secondary box color"),
+                          t("رنگ و شفافیت کادرهای کم‌رنگ‌تر زیرمجموعه", "Color and transparency of the lighter boxes inside other options"),
+                          0, fg, x -> goBgPage(SBOX, dlg)));
                   box.addView(toggleRow(0xFFEF5350, "◻", t("شکل آیکون‌های سربرگ", "Header icons shape"),
                           t("آیکون‌ها بدون دایره و داخل کادر مثل کادر شمارش", "Icons sit in boxes like the counters, not circles"),
                           "topIconBox", false, fg));
@@ -2365,6 +2379,8 @@ jobs:
                   else if (page == HFBG) v = bgPageG(2, fg);
                   else if (page == MBG) v = bgPageG(1, fg);
                   else if (page == TBG) v = bgPageG(3, fg);
+                  else if (page == MBOX) v = bgPageG(4, fg);
+                  else if (page == SBOX) v = bgPageG(5, fg);
                   else if (page == BEHAVIOR) v = behaviorPage(fg);
                   else if (page == DOCK) v = dockPageView(fg);
                   else if (page == DOCKBG) v = dockBgPage(fg);
@@ -2493,6 +2509,14 @@ jobs:
                       if (dockTop) gvp.topMargin = dockReserve(); else gvp.bottomMargin = dockReserve();
                   }
                   mid.addView(gv, gvp);
+                  if (hpPager != null) {
+                      FrameLayout.LayoutParams e1 = new FrameLayout.LayoutParams(dp(16), -1, Gravity.LEFT);
+                      e1.bottomMargin = dockReserve();
+                      mid.addView(edgeStrip(true), e1);
+                      FrameLayout.LayoutParams e2 = new FrameLayout.LayoutParams(dp(16), -1, Gravity.RIGHT);
+                      e2.bottomMargin = dockReserve();
+                      mid.addView(edgeStrip(false), e2);
+                  }
                   // the dock floats over the grid, which scrolls behind it
                   mid.addView(dockBox, new FrameLayout.LayoutParams(-1, -2, dockTop ? Gravity.TOP : Gravity.BOTTOM));
                   trashBtn = trashView();
@@ -3038,6 +3062,431 @@ jobs:
                   return box;
               }
 
+
+              // ================= horizontal pages =================
+              // option "Horizontal pages" on = one home page that scrolls down; off = several pages (swipe left / right, endless)
+              int hpCur = 0;
+              Pager hpPager;
+              boolean hpNavigated = false;
+
+              boolean pagedMode() { return !sp.getBoolean("hpScroll", true); }
+
+              int pageCap() { return Math.max(1, sp.getInt("gridCols", 4) * 7); }
+
+              boolean visibleItem(Item it) { return it.folder ? !it.docked : (it.pkg != null && installed(it.pkg)); }
+
+              int countPage(int p) {
+                  int n = 0;
+                  for (Item it : home) if (it.page == p && visibleItem(it)) n++;
+                  return n;
+              }
+
+              int maxPage() {
+                  int mx = -1;
+                  for (Item it : home) if (visibleItem(it)) mx = Math.max(mx, it.page);
+                  return mx;
+              }
+
+              int pageCount() { return Math.max(1, maxPage() + 1); }
+
+              void compressPages() {
+                  TreeSet<Integer> ps = new TreeSet<>();
+                  for (Item it : home) if (visibleItem(it) && it.page >= 0) ps.add(it.page);
+                  Map<Integer, Integer> m = new HashMap<>();
+                  int i = 0;
+                  for (int v : ps) m.put(v, i++);
+                  for (Item it : home) if (visibleItem(it) && it.page >= 0) it.page = m.get(it.page);
+              }
+
+              // gives every icon a page; a full page pushes its last icon to the next page; empty pages disappear
+              void normalizePages() {
+                  if (!pagedMode()) return;
+                  int cap = pageCap();
+                  for (Item it : home) if (!visibleItem(it)) it.page = -1;
+                  compressPages();
+                  for (Item it : new ArrayList<>(home)) {
+                      if (!visibleItem(it) || it.page >= 0) continue;
+                      int mx = maxPage();
+                      int target = -1;
+                      for (int p = 0; p <= mx; p++) if (countPage(p) < cap) { target = p; break; }
+                      if (target < 0) target = mx + 1;
+                      it.page = target;
+                  }
+                  for (int p = 0; p < 500 && p <= maxPage(); p++) {
+                      while (countPage(p) > cap) {
+                          Item last = null;
+                          for (Item q : home) if (visibleItem(q) && q.page == p) last = q;
+                          home.remove(last);
+                          int at = home.size();
+                          for (int i = 0; i < home.size(); i++) {
+                              if (visibleItem(home.get(i)) && home.get(i).page == p + 1) { at = i; break; }
+                          }
+                          home.add(at, last);
+                          last.page = p + 1;
+                      }
+                  }
+                  compressPages();
+                  hpCur = Math.max(0, Math.min(hpCur, pageCount() - 1));
+              }
+
+              void onPagesToggled() {
+                  if (pagedMode()) {
+                      hpCur = 0;
+                  } else {
+                      Collections.sort(home, (a, b) -> Integer.compare(a.page < 0 ? 100000 : a.page, b.page < 0 ? 100000 : b.page));
+                  }
+                  saveHome();
+              }
+
+              // puts the dragged items on page pi (no capacity check)
+              void placeOnPage(String payload, int pi) {
+                  for (String k : keysFor(payload)) {
+                      final String p = k.startsWith("app:") ? k.substring(4) : k;
+                      boolean fromDock = selDock.contains(p);
+                      if (k.startsWith("folder:")) {
+                          Item d = findFolder(k.substring(7));
+                          if (d == null) continue;
+                          d.docked = false;
+                          removeFromDocks(k);
+                          home.remove(d);
+                          home.add(d);
+                          d.page = pi;
+                      } else {
+                          if (fromDock) removeFromDocks(p);
+                          if (dragFromFolder) for (Item it : home) if (it.folder) it.apps.remove(p);
+                          Item ex = null;
+                          boolean inFolder = false;
+                          for (Item it : home) {
+                              if (it.folder) { if (it.apps.contains(p)) inFolder = true; }
+                              else if (p.equals(it.pkg)) ex = it;
+                          }
+                          if (ex != null) {
+                              home.remove(ex);
+                              home.add(ex);
+                              ex.page = pi;
+                          } else if (!inFolder) {
+                              Item a = new Item();
+                              a.pkg = p;
+                              a.page = pi;
+                              home.add(a);
+                          }
+                      }
+                  }
+              }
+
+              // drop on an empty part of page pi
+              void dropOnPage(String payload, int pi) {
+                  int add = 0;
+                  for (String k : keysFor(payload)) {
+                      final String p = k.startsWith("app:") ? k.substring(4) : k;
+                      if (k.startsWith("folder:")) {
+                          Item d = findFolder(k.substring(7));
+                          if (d != null && !(d.page == pi && !d.docked)) add++;
+                      } else {
+                          boolean here = false;
+                          for (Item it : home) if (!it.folder && p.equals(it.pkg) && it.page == pi) here = true;
+                          if (!here) add++;
+                      }
+                  }
+                  if (countPage(pi) + add > pageCap()) {
+                      Toast.makeText(this, t("این صفحه پر است", "This page is full"), Toast.LENGTH_SHORT).show();
+                      dragKeys.clear();
+                      dragFromDock = false;
+                      dragFromFolder = false;
+                      return;
+                  }
+                  placeOnPage(payload, pi);
+                  hpCur = pi;
+                  endDropCleanup();
+                  saveHome();
+                  saveDock();
+                  postShow();
+              }
+
+              // dropped on the far left edge: a new page opens on the left of the last page and takes the icons
+              void dropNewPage(String payload) {
+                  int np = pageCount();
+                  placeOnPage(payload, np);
+                  endDropCleanup();
+                  hpCur = np;
+                  saveHome();
+                  hpCur = pageCount() - 1;
+                  saveDock();
+                  postShow();
+              }
+
+              // strip at the left / right edge of the home page that shows while an icon is dragged:
+              // holding the icon on it turns the page; dropping on the left one quickly opens a new page
+              View edgeStrip(final boolean left) {
+                  final View v = new View(this);
+                  final Runnable[] nav = new Runnable[1];
+                  nav[0] = () -> {
+                      if (hpPager != null && hpPager.step(left ? 1 : -1)) { hpNavigated = true; vib(15); }
+                      v.postDelayed(nav[0], 800);
+                  };
+                  v.setOnDragListener((w, ev) -> {
+                      switch (ev.getAction()) {
+                          case DragEvent.ACTION_DRAG_STARTED:
+                              hpNavigated = false;
+                              if (hpPager == null) return false;
+                              w.setBackgroundColor(0x22FFFFFF);
+                              return true;
+                          case DragEvent.ACTION_DRAG_ENTERED:
+                              w.setBackgroundColor(0x55FFFFFF);
+                              w.postDelayed(nav[0], 600);
+                              return true;
+                          case DragEvent.ACTION_DRAG_EXITED:
+                              w.removeCallbacks(nav[0]);
+                              w.setBackgroundColor(0x22FFFFFF);
+                              return true;
+                          case DragEvent.ACTION_DRAG_ENDED:
+                              w.removeCallbacks(nav[0]);
+                              w.setBackgroundColor(0);
+                              return true;
+                          case DragEvent.ACTION_DROP:
+                              w.removeCallbacks(nav[0]);
+                              w.setBackgroundColor(0);
+                              if (hpPager == null) return false;
+                              String pl = ev.getClipData().getItemAt(0).getText().toString();
+                              if (left && !hpNavigated) dropNewPage(pl);
+                              else dropOnPage(pl, hpPager.cur);
+                              return true;
+                      }
+                      return false;
+                  });
+                  return v;
+              }
+
+              // the pages sit side by side (the newest on the left); swiping turns them round without end
+              class Pager extends FrameLayout {
+                  View[] pages;
+                  int n, cur;
+                  float pos;
+                  float x0, y0, pos0;
+                  boolean drag;
+                  VelocityTracker vt;
+                  ValueAnimator anim;
+                  LinearLayout dots;
+
+                  Pager(Context c, int n) {
+                      super(c);
+                      this.n = n;
+                      pages = new View[n];
+                  }
+
+                  @Override
+                  protected void onSizeChanged(int w, int h, int ow, int oh) {
+                      super.onSizeChanged(w, h, ow, oh);
+                      layoutPages();
+                  }
+
+                  void layoutPages() {
+                      int W = getWidth();
+                      if (W <= 0) return;
+                      for (int i = 0; i < n; i++) {
+                          if (pages[i] == null) continue;
+                          float rel = i - pos;
+                          rel -= n * Math.round(rel / n);
+                          pages[i].setTranslationX(-rel * W);
+                          pages[i].setVisibility(Math.abs(rel) < 1.01f ? View.VISIBLE : View.INVISIBLE);
+                      }
+                  }
+
+                  void buildDots(int bottomPx) {
+                      if (n < 2) return;
+                      dots = new LinearLayout(MainActivity.this);
+                      dots.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+                      FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+                      lp.bottomMargin = bottomPx;
+                      addView(dots, lp);
+                      updateDots();
+                  }
+
+                  void updateDots() {
+                      if (dots == null) return;
+                      dots.removeAllViews();
+                      for (int j = 0; j < n; j++) {
+                          boolean on = (n - 1 - j) == cur;
+                          View d = new View(MainActivity.this);
+                          d.setBackground(oval(on ? 0xCCFFFFFF : 0x55FFFFFF));
+                          LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(on ? 7 : 5), dp(on ? 7 : 5));
+                          dl.setMargins(dp(3), 0, dp(3), 0);
+                          dl.gravity = Gravity.CENTER_VERTICAL;
+                          dots.addView(d, dl);
+                      }
+                  }
+
+                  void animateTo(final float target) {
+                      if (anim != null) anim.cancel();
+                      anim = ValueAnimator.ofFloat(pos, target);
+                      anim.setDuration(220);
+                      anim.setInterpolator(new DecelerateInterpolator());
+                      anim.addUpdateListener(a -> { pos = (Float) a.getAnimatedValue(); layoutPages(); });
+                      anim.addListener(new AnimatorListenerAdapter() {
+                          boolean cancelled;
+                          @Override public void onAnimationCancel(Animator an) { cancelled = true; }
+                          @Override public void onAnimationEnd(Animator an) {
+                              if (cancelled) return;
+                              cur = ((Math.round(target) % n) + n) % n;
+                              pos = cur;
+                              hpCur = cur;
+                              layoutPages();
+                              updateDots();
+                              anim = null;
+                          }
+                      });
+                      anim.start();
+                  }
+
+                  // turns one page (d = +1: the page on the left, -1: the one on the right); no wrap
+                  boolean step(int d) {
+                      if (anim != null) return false;
+                      int t = cur + d;
+                      if (t < 0 || t >= n) return false;
+                      animateTo(pos + d);
+                      return true;
+                  }
+
+                  boolean check(MotionEvent ev) {
+                      if (drag) return true;
+                      int slop = ViewConfiguration.get(MainActivity.this).getScaledTouchSlop();
+                      float dx = ev.getX() - x0, dy = ev.getY() - y0;
+                      if (Math.abs(dx) > slop && Math.abs(dx) > Math.abs(dy) * 1.2f) {
+                          drag = true;
+                          if (vt == null) vt = VelocityTracker.obtain(); else vt.clear();
+                          return true;
+                      }
+                      return false;
+                  }
+
+                  void down(MotionEvent ev) {
+                      x0 = ev.getX();
+                      y0 = ev.getY();
+                      if (anim != null) anim.cancel();
+                      anim = null;
+                      pos0 = pos;
+                      drag = false;
+                  }
+
+                  @Override
+                  public boolean onInterceptTouchEvent(MotionEvent ev) {
+                      if (n < 2) return false;
+                      int a = ev.getActionMasked();
+                      if (a == MotionEvent.ACTION_DOWN) down(ev);
+                      else if (a == MotionEvent.ACTION_MOVE) return check(ev);
+                      return false;
+                  }
+
+                  @Override
+                  public boolean onTouchEvent(MotionEvent ev) {
+                      if (n < 2) return false;
+                      int a = ev.getActionMasked();
+                      if (a == MotionEvent.ACTION_DOWN) { down(ev); return true; }
+                      if (!drag && a == MotionEvent.ACTION_MOVE) check(ev);
+                      if (!drag) return true;
+                      if (vt != null) vt.addMovement(ev);
+                      int W = Math.max(1, getWidth());
+                      if (a == MotionEvent.ACTION_MOVE) {
+                          pos = pos0 + (ev.getX() - x0) / W;
+                          layoutPages();
+                      } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
+                          float vx = 0;
+                          if (vt != null) { vt.computeCurrentVelocity(1000); vx = vt.getXVelocity(); vt.recycle(); vt = null; }
+                          float delta = pos - pos0;
+                          int base = Math.round(pos0);
+                          float target = base;
+                          if (a == MotionEvent.ACTION_UP) {
+                              if (delta > 0.25f || (vx > 900 && delta > 0.03f)) target = base + 1;
+                              else if (delta < -0.25f || (vx < -900 && delta < -0.03f)) target = base - 1;
+                          }
+                          drag = false;
+                          animateTo(target);
+                      }
+                      return true;
+                  }
+              }
+
+              // item cell of the home page (null when the app is not installed)
+              View homeItemView(final Item item, int fg, int iconPx, int folderPx, boolean hide, boolean folderNames, int ts, int fts) {
+                  if (item.folder) return folderCell(item, fg, folderPx, folderNames, fts);
+                  final String pkg = item.pkg;
+                  if (!installed(pkg)) return null;
+                  View c = gearWrap(cell(pkg, fg, iconPx, ts, !hide), pkg, true);
+                  c.setOnClickListener(w -> { if (sel.isEmpty()) launchApp(pkg); else toggleSel(pkg); });
+                  c.setOnLongClickListener(w -> {
+                      selHold(pkg, false, w, "app:" + pkg);
+                      return true;
+                  });
+                  return c;
+              }
+
+              View pagedGrid(int fg, int cols, int cellH, int iconPx, int folderPx, boolean hide, boolean folderNames,
+                             int ts, int fts, int rowGapPx) {
+                  normalizePages();
+                  int n = pageCount();
+                  hpCur = Math.max(0, Math.min(hpCur, n - 1));
+                  final Pager pg = new Pager(this, n);
+                  pg.cur = hpCur;
+                  pg.pos = hpCur;
+                  hpPager = pg;
+                  boolean any = false;
+                  for (int p = 0; p < n; p++) {
+                      List<View> views = new ArrayList<>();
+                      for (Item item : home) {
+                          if (!visibleItem(item) || item.page != p) continue;
+                          View c = homeItemView(item, fg, iconPx, folderPx, hide, folderNames, ts, fts);
+                          if (c == null) continue;
+                          makeDropTarget(c, item);
+                          views.add(c);
+                      }
+                      if (!views.isEmpty()) any = true;
+                      LinearLayout rowsBox = buildRows(views, cols, cellH, rowGapPx);
+                      int firstTop = dp(12) + rowGapPx;
+                      int firstNeg = 0;
+                      if (firstTop < 0) { firstNeg = firstTop; firstTop = 0; }
+                      rowsBox.setPadding(0, firstTop, 0, 0);
+                      rowsBox.setClipChildren(false);
+                      if (firstNeg < 0 && rowsBox.getChildCount() > 0) {
+                          ((LinearLayout.LayoutParams) rowsBox.getChildAt(0).getLayoutParams()).topMargin = firstNeg;
+                      }
+                      FrameLayout page = new FrameLayout(this);
+                      page.setClipChildren(false);
+                      page.addView(rowsBox, new FrameLayout.LayoutParams(-1, -2));
+                      final int pi = p;
+                      page.setOnDragListener((w, ev) -> {
+                          if (ev.getAction() == DragEvent.ACTION_DROP) {
+                              dropOnPage(ev.getClipData().getItemAt(0).getText().toString(), pi);
+                              return true;
+                          }
+                          return true;
+                      });
+                      pg.addView(page, new FrameLayout.LayoutParams(-1, -1));
+                      pg.pages[p] = page;
+                  }
+                  if (!any && n == 1) {
+                      TextView e = new TextView(this);
+                      e.setText(t("برای افزودن برنامه یا پوشه، دکمه + را بزنید", "Tap + to add apps or folders"));
+                      e.setTextColor(fg);
+                      e.setAlpha(0.7f);
+                      e.setPadding(0, dp(24), 0, 0);
+                      pg.addView(e);
+                  }
+                  final boolean framed = sp.getBoolean("hfOn", false);
+                  pg.buildDots(framed ? dp(8) : dockReserve() + dp(2));
+                  if (framed) {
+                      pg.setOutlineProvider(new ViewOutlineProvider() {
+                          @Override
+                          public void getOutline(View v, Outline o) {
+                              o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(26));
+                          }
+                      });
+                      pg.setClipToOutline(true);
+                  }
+                  pg.layoutPages();
+                  refreshCells();
+                  return pg;
+              }
+
               View gridScroll(final int fg) {
                   DisplayMetrics dm = getResources().getDisplayMetrics();
                   // the row count is fixed now; "Horizontal spacing" only moves rows 2, 3, ... (the first row never moves)
@@ -3056,6 +3505,8 @@ jobs:
                           Math.max(iconPx, folderPx) + (hide ? dp(10) : dp(30)));
                   int ts = sp.contains("nameSz") ? sp.getInt("nameSz", 12) : (cols <= 5 ? 12 : (cols <= 8 ? 10 : 8));
                   int fts = sp.contains("fpTsBot") ? sp.getInt("fpTsBot", 12) : ts;
+                  hpPager = null;
+                  if (pagedMode()) return pagedGrid(fg, cols, cellH, iconPx, folderPx, hide, folderNames, ts, fts, rowGapPx);
 
                   // the home page scrolls behind the dock and fades out there
                   // (with the home frame on, the page is cut to the rounded frame and fades at its top and bottom edge)
@@ -3132,19 +3583,8 @@ jobs:
                   List<View> views = new ArrayList<>();
                   for (final Item item : home) {
                       if (item.folder && item.docked) continue;
-                      View c;
-                      if (item.folder) {
-                          c = folderCell(item, fg, folderPx, folderNames, fts);
-                      } else {
-                          final String pkg = item.pkg;
-                          if (!installed(pkg)) continue;
-                          c = gearWrap(cell(pkg, fg, iconPx, ts, !hide), pkg, true);
-                          c.setOnClickListener(w -> { if (sel.isEmpty()) launchApp(pkg); else toggleSel(pkg); });
-                          c.setOnLongClickListener(w -> {
-                              selHold(pkg, false, w, "app:" + pkg);
-                              return true;
-                          });
-                      }
+                      View c = homeItemView(item, fg, iconPx, folderPx, hide, folderNames, ts, fts);
+                      if (c == null) continue;
                       makeDropTarget(c, item);
                       views.add(c);
                   }
@@ -3496,6 +3936,7 @@ jobs:
                       }
                       home.remove(d);
                       home.add(Math.max(0, Math.min(dropTi + dropIns++, home.size())), d);
+                      d.page = target.page;
                   } else {
                       final String p = payload.substring(4);
                       boolean wasDock = dragFromDock;
@@ -3508,6 +3949,7 @@ jobs:
                       } else {
                           Item a = new Item();
                           a.pkg = p;
+                          a.page = target.page;
                           home.add(Math.max(0, Math.min(dropTi + dropIns++, home.size())), a);
                       }
                   }
@@ -3516,6 +3958,7 @@ jobs:
 
               // drop on an empty part of the home grid (from the dock or from an open folder)
               void dropOnGrid(String payload) {
+                  if (pagedMode()) { dropOnPage(payload, hpCur); return; }
                   for (String k : keysFor(payload)) {
                       final String p = k.startsWith("app:") ? k.substring(4) : k;
                       boolean fromDock = selDock.contains(p);
@@ -3856,7 +4299,7 @@ jobs:
                               int idx = home.size();
                               if (!initial.isEmpty()) {
                                   for (int i = 0; i < home.size(); i++) {
-                                      if (!home.get(i).folder && initial.contains(home.get(i).pkg)) { idx = i; break; }
+                                      if (!home.get(i).folder && initial.contains(home.get(i).pkg)) { idx = i; f.page = home.get(i).page; break; }
                                   }
                                   home.removeIf(q -> !q.folder && initial.contains(q.pkg));
                               }
@@ -4895,6 +5338,11 @@ jobs:
                   r.addView(row(0xFFFF7043, "🖼", t("پس‌زمینه کادر", "Frame background"),
                           t("رنگ، شفافیت و عکس کادر", "Color, transparency and picture of the frame"), 0, fg,
                           v -> { page = HFBG; show(); }));
+                  // one page that scrolls down (on) or several pages that turn left and right (off)
+                  r.addView(toggleRowThen(0xFF26A69A, "↔", t("صفحات افقی", "Horizontal pages"),
+                          t("روشن: یک صفحه که به پایین اسکرول می‌شود. خاموش: چند صفحه که با کشیدن به چپ و راست می‌چرخند",
+                                  "On: one page that scrolls down. Off: several pages that turn left and right"),
+                          "hpScroll", true, fg, () -> { onPagesToggled(); show(); }));
                   // icon settings open right here, in lighter glass boxes
                   r.addView(accordionGroupFaded(0xFFAB47BC, "🧩", t("آیکون", "Icon"), fg, 0.6f, () -> iconItems(fg)));
                   return wrapScroll(r);
@@ -5084,6 +5532,9 @@ jobs:
 
               // mode 0 = home page, 1 = settings menu, 2 = home frame, 3 = top settings frame
               int curColor(int mode) {
+                  if (mode == 4) return sp.contains("boxMain") ? sp.getInt("boxMain", 0) : (glass() ? (light() ? 0x44FFFFFF : 0x26FFFFFF) : (light() ? 0x14000000 : 0x1AFFFFFF));
+                  if (mode == 5) return sp.contains("boxSub") ? sp.getInt("boxSub", 0)
+                          : scaleA(glass() ? (light() ? 0x44FFFFFF : 0x26FFFFFF) : (light() ? 0x14000000 : 0x1AFFFFFF), 0.6f);
                   return mode == 0 ? bg : (mode == 1 ? mbg()
                           : (mode == 2 ? sp.getInt("hfBg", 0x6628282C) : sp.getInt("topBoxBg", 0x6628282C)));
               }
@@ -5103,6 +5554,11 @@ jobs:
               void setColorG(int mode, int c) {
                   if (mode == 0) {
                       setBg(c);
+                      return;
+                  }
+                  if (mode >= 4) {
+                      sp.edit().putInt(mode == 4 ? "boxMain" : "boxSub", c).apply();
+                      show();
                       return;
                   }
                   if (mode == 1) {
@@ -5149,18 +5605,19 @@ jobs:
 
               // mode 0 = home page background, 1 = settings menu color, 2 = home frame background, 3 = top settings frame
               View bgPageG(final int mode, final int fg) {
-                  final String pre = mode == 0 ? "bg" : (mode == 1 ? "m" : (mode == 2 ? "hf" : "tb"));
+                  final String pre = mode == 0 ? "bg" : (mode == 1 ? "m" : (mode == 2 ? "hf" : (mode == 3 ? "tb" : "bx")));
                   final int req = mode == 0 ? REQ_IMG : (mode == 1 ? REQ_MIMG : (mode == 2 ? REQ_FIMG : REQ_TIMG));
                   String title = mode == 0 ? t("پس‌زمینه", "Background")
                           : (mode == 1 ? t("رنگ منو", "Menu color")
                           : (mode == 2 ? t("پس‌زمینه کادر", "Frame background")
-                          : t("رنگ کادر تنظیمات", "Settings frame color")));
+                          : (mode == 3 ? t("رنگ کادر تنظیمات", "Settings frame color")
+                          : (mode == 4 ? t("رنگ کادر اصلی", "Main box color") : t("رنگ کادر فرعی", "Secondary box color")))));
                   LinearLayout p = vbox();
                   p.addView(topBar(title, fg));
 
-                  boolean hasImg = mode == 0 ? bgBmp != null : (mode == 1 ? mbgBmp != null
+                  boolean hasImg = mode >= 4 ? false : mode == 0 ? bgBmp != null : (mode == 1 ? mbgBmp != null
                           : (mode == 2 ? hfSrc != null : tbSrc != null));
-                  p.addView(row(0xFF26A69A, "🖼", t("عکس پس‌زمینه", "Background image"),
+                  if (mode < 4) p.addView(row(0xFF26A69A, "🖼", t("عکس پس‌زمینه", "Background image"),
                           hasImg ? t("فعال", "Active") : t("انتخاب عکس از گالری", "Pick a photo from the gallery"),
                           0, fg, v -> pickImg(req)));
                   if (hasImg) {
@@ -5363,9 +5820,9 @@ jobs:
                           sync ? 3 : 2, fg,
                           v -> { sp.edit().putBoolean("folderSync", !sync).apply(); show(); }));
 
-                  l.add(accordionRow(0xFF9C27B0, "↔", t("تعداد ستون‌ها", "Columns count"), "gridCols", 4, 20, 4, "", fg, null));
+                  l.add(accordionRow(0xFF9C27B0, "↔", t("ردیف عمودی", "Vertical rows"), "gridCols", 4, 20, 4, "", fg, null));
                   // the first row follows the row spacing too
-                  l.add(accordionRow(0xFF607D8B, "↕", t("فاصله افقی", "Horizontal spacing"), "gridGap", -6, 8, 0, " mm", fg, null));
+                  l.add(accordionRow(0xFF607D8B, "↕", t("ردیف افقی", "Horizontal rows"), "gridGap", -6, 8, 0, " mm", fg, null));
 
                   final boolean hide = sp.getBoolean("hideNames", false);
                   l.add(row(0xFFAB47BC, "🏷", t("حذف نام برنامه", "Hide app names"),
