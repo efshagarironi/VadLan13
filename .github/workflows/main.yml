@@ -950,6 +950,10 @@ jobs:
               Map<String, List<View>> cells = new HashMap<>();
               Map<String, List<View>> gears = new HashMap<>();
               String openFolder = null, pickTarget = null;
+              String lastClosedFolder = null;
+              int folderDir = 1;
+              float swipeX0, swipeY0;
+              boolean swipeFired;
 
               List<AppItem> allApps = new ArrayList<>();
               List<String> added = new ArrayList<>();
@@ -984,6 +988,7 @@ jobs:
                   loadDock();
                   fixDocked();
                   notifyBar();
+                  lastClosedFolder = sp.getString("lastClosed", null);
                   checkMockIntent(getIntent());
                   // keep the shortcut tile state equal to the saved choice
                   try {
@@ -1021,6 +1026,27 @@ jobs:
               // (a closed folder can be touched: the new folder then replaces the open one)
               @Override
               public boolean dispatchTouchEvent(MotionEvent ev) {
+                  // swipe up on the icon pages (paged mode): opens the folder that was closed last, on any page
+                  if (page == HOME && pagedMode() && openFolder == null && !dragActive) {
+                      int act = ev.getActionMasked();
+                      if (act == MotionEvent.ACTION_DOWN) {
+                          swipeX0 = ev.getRawX();
+                          swipeY0 = ev.getRawY();
+                          swipeFired = false;
+                      } else if (act == MotionEvent.ACTION_MOVE && !swipeFired) {
+                          float dx = ev.getRawX() - swipeX0, dy = ev.getRawY() - swipeY0;
+                          boolean aboveDock = true;
+                          if (dockBoxV != null && dockBoxV.getHeight() > 0) {
+                              int[] dl = new int[2];
+                              dockBoxV.getLocationOnScreen(dl);
+                              aboveDock = swipeY0 < dl[1];
+                          }
+                          if (aboveDock && dy < -dp(40) && Math.abs(dy) > Math.abs(dx) * 1.3f) {
+                              swipeFired = true;
+                              openLastClosed();
+                          }
+                      }
+                  }
                   if (page == HOME && openFolder != null && ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
                       if (closing) return true;
                       if (immersive && hit(dockBoxV, ev)) return super.dispatchTouchEvent(ev);
@@ -1417,7 +1443,7 @@ jobs:
                   SwipePanel(Context c) { super(c); }
 
                   boolean sideOk(float dx) {
-                      if (sp.getBoolean("fpAnim", true) || !fromDock || openFolder == null) return false;
+                      if ((sp.getBoolean("fpAnim", true) && sp.getInt("fdAnim", -1) < 0) || !fromDock || openFolder == null) return false;
                       return dockNeighbor(openFolder, dx > 0) != null;
                   }
 
@@ -1456,7 +1482,7 @@ jobs:
                               } else if (mode == 2 && Math.abs(dx) > dp(60)) {
                                   fired = true;
                                   String nid = dockNeighbor(openFolder, dx > 0);
-                                  if (nid != null) openDockFolder(nid);
+                                  if (nid != null) { folderDir = dx > 0 ? 1 : -1; openDockFolder(nid); }
                               }
                           } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
                               mode = 0;
@@ -1834,12 +1860,13 @@ jobs:
               // circle, or a box like the counters when "header icons shape" is on
               void styleTop(ImageView v, int fg) {
                   v.setColorFilter(sp.getInt("top_ic", fg));
-                  if (sp.getBoolean("topIconBox", false)) {
-                      int c = sp.contains("top_ibg") ? sp.getInt("top_ibg", 0x33FFFFFF) : sp.getInt("box_bg", 0x33FFFFFF);
-                      v.setBackground(rr(c, dp(16)));
-                  } else {
-                      v.setBackground(oval(sp.getInt("top_ibg", light() ? 0x22000000 : 0x33FFFFFF)));
-                  }
+                  // same box as the clock and date boxes: rounded, with a very thin white edge
+                  int c = sp.contains("top_ibg") ? sp.getInt("top_ibg", 0x33FFFFFF) : sp.getInt("box_bg", 0x33FFFFFF);
+                  GradientDrawable g = new GradientDrawable();
+                  g.setCornerRadius(dp(16));
+                  g.setColor(c);
+                  g.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
+                  v.setBackground(g);
               }
 
               // opens after holding for 1 second; the normal tap still works
@@ -1943,7 +1970,7 @@ jobs:
                   box.setOrientation(LinearLayout.VERTICAL);
                   final int dszF = sp.getInt("home_btn_sz", 40);
                   // counters settings
-                  box.addView(accordionGroup(0xFF26A69A, "🔢", t("کادرهای شمارش پوشه و آیکون", "Folder and icon counters"), fg,
+                  box.addView(accordionGroup(0xFF26A69A, "🔢", t("داده‌ها نوار ابزار", "Toolbar data"), fg,
                           countersContent(fg)));
                   // placement of the two icons: first lever = horizontal, second = vertical
                   box.addView(accordionGroupFaded(0xFF00ACC1, "↔", t("جای‌گیری آیکون‌ها", "Icons placement"), fg, 0.6f, () -> new View[]{
@@ -2704,7 +2731,6 @@ jobs:
                   c.setGravity(Gravity.CENTER);
                   c.setTranslationX(dp(sp.getInt("box_px", 0)));
                   c.setTranslationY(dp(sp.getInt("box_py", 0)));
-
                   int appsHome = 0;
                   for (Item it : home) {
                       if (!it.folder) appsHome++;
@@ -2717,6 +2743,16 @@ jobs:
                       if (f != null) folderCount = f.apps.size();
                   }
 
+                  if (sp.getBoolean("stackOn", false)) { c.addView(stackBox(fg)); return c; }
+                  boolean clkOn = sp.getBoolean("clockOn", false), dtOn = sp.getBoolean("dateOn", false);
+                  if (clkOn || dtOn) {
+                      // clock on: folder counter -> clock (centered), icon counter removed
+                      // date on + clock on: date on the right of the clock
+                      // date on + clock off: folder counter and icon counter removed, date centered
+                      if (clkOn) c.addView(clockBox(fg));
+                      if (dtOn) c.addView(dateBox(fg));
+                      return c;
+                  }
                   c.addView(countBox(folderCount, fg));
                   c.addView(countBox(appsHome, fg));
                   return c;
@@ -2744,6 +2780,246 @@ jobs:
                   tv.setLayoutParams(lp);
                   longOne(tv, () -> boxMenu());
                   return tv;
+              }
+
+              // ================= clock and Jalali date =================
+              static final String DATE_SEP = ".";
+
+              int[] g2j(int gy, int gm, int gd) {
+                  int[] gdm = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+                  int gy2 = gm > 2 ? gy + 1 : gy;
+                  int days = 355666 + 365 * gy + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + gdm[gm - 1];
+                  int jy = -1595 + 33 * (days / 12053);
+                  days %= 12053;
+                  jy += 4 * (days / 1461);
+                  days %= 1461;
+                  if (days > 365) { jy += (days - 1) / 365; days = (days - 1) % 365; }
+                  int jm = days < 186 ? 1 + days / 31 : 7 + (days - 186) / 30;
+                  int jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
+                  return new int[]{jy, jm, jd};
+              }
+
+              void setClock(TextView tv) {
+                  Calendar c = Calendar.getInstance();
+                  String hm = String.format(Locale.US, "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
+                  String ss = String.format(Locale.US, " %02d", c.get(Calendar.SECOND));
+                  android.text.SpannableString st = new android.text.SpannableString(hm + ss);
+                  st.setSpan(new android.text.style.RelativeSizeSpan(0.6f), hm.length(), st.length(), 0);
+                  st.setSpan(new android.text.style.SuperscriptSpan(), hm.length(), st.length(), 0);
+                  st.setSpan(new android.text.style.ForegroundColorSpan((sp.getInt("box_tc", fgc) & 0x00FFFFFF) | 0x88000000),
+                          hm.length(), st.length(), 0);
+                  tv.setText(st);
+              }
+
+              void setDate(TextView tv) {
+                  Calendar c = Calendar.getInstance();
+                  int[] j = g2j(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH));
+                  tv.setText(String.format(Locale.US, "%02d" + dateSep() + "%02d" + dateSep() + "%02d",
+                          j[0] % 100, j[1], j[2]));
+              }
+
+              // refreshes the text while the box is on screen (clock every second, date every 30 seconds)
+              void startTick(final TextView tv, final boolean date) {
+                  final Runnable[] r = new Runnable[1];
+                  r[0] = () -> {
+                      if (!tv.isAttachedToWindow()) return;
+                      if (date) setDate(tv); else setClock(tv);
+                      tv.postDelayed(r[0], date ? 60000 : 1000);
+                  };
+                  tv.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+                      @Override public void onViewAttachedToWindow(View v) { v.removeCallbacks(r[0]); v.post(r[0]); }
+                      @Override public void onViewDetachedFromWindow(View v) { v.removeCallbacks(r[0]); }
+                  });
+                  if (tv.isAttachedToWindow()) tv.post(r[0]);
+              }
+
+              // clock / date boxes: same look as the counters, a little wider, thin light edge
+              TextView timeBox(int fg, float wMul, float tsMul, boolean date) {
+                  TextView tv = new TextView(this);
+                  tv.setGravity(Gravity.CENTER);
+                  tv.setSingleLine(true);
+                  tv.setIncludeFontPadding(false);
+                  tv.setTextSize(sc(Math.round(sp.getInt("box_ts", 18) * tsMul)));
+                  tv.setTextColor(sp.getInt("box_tc", fg));
+                  tv.setTypeface(weightFace(sp.getInt("box_tw", 3)));
+                  try { tv.setFontFeatureSettings("tnum"); } catch (Throwable e) { }
+                  tv.setLetterSpacing(0.04f);
+                  tv.setAutoSizeTextTypeUniformWithConfiguration(6, Math.max(7, sc(Math.round(sp.getInt("box_ts", 18) * tsMul))), 1, TypedValue.COMPLEX_UNIT_SP);
+                  GradientDrawable g = new GradientDrawable();
+                  g.setCornerRadius(dp(16));
+                  g.setColor(sp.getInt("box_bg", 0x33FFFFFF));
+                  g.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
+                  tv.setBackground(g);
+                  tv.setShadowLayer(dp(2), 0, 0, 0x55000000);
+                  LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                          dp(Math.round(sc(sp.getInt("box_w", 62)) * wMul)), dp(sc(sp.getInt("box_h", 40))));
+                  lp.setMargins(dp(2), 0, dp(2), 0);
+                  tv.setLayoutParams(lp);
+                  if (date) setDate(tv); else setClock(tv);
+                  startTick(tv, date);
+                  longOne(tv, () -> boxMenu());
+                  return tv;
+              }
+
+              View clockBox(int fg) { return timeBox(fg, 1.0f, 0.85f, false); }
+
+              View dateBox(int fg) { return timeBox(fg, 1.0f, 0.85f, true); }
+
+              static final String[] ANIM_FA = {"کشویی", "محو شدن", "زوم", "ریزش", "کرکره‌ای", "لایه‌ای (Stack)", "ورق‌زدن (Flip)", "شیشه‌ای (Glass)", "زوم عمقی (Zoom)", "چرخش سه‌بعدی (3D)", "مکعب سه‌بعدی (3D Cube)"};
+              static final String[] ANIM_EN = {"Slide", "Fade", "Zoom", "Drop", "Shutter", "Stack", "Flip", "Glass", "Zoom depth", "3D flip", "3D cube"};
+              static final int[] ANIM_IDS = {0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12};
+
+              String dateSep() { return sp.getBoolean("momayyez", false) ? "\u066B" : DATE_SEP; }
+
+              // clock / date / stacked / decimal-mark options (rebuilt in place when one is tapped)
+              LinearLayout timeSection(final int fg) {
+                  LinearLayout sec = new LinearLayout(this);
+                  sec.setOrientation(LinearLayout.VERTICAL);
+                  timeRows(sec, fg);
+                  return sec;
+              }
+
+              void timeRows(final LinearLayout sec, final int fg) {
+                  sec.removeAllViews();
+                  sec.addView(timeOpt(sec, fg, 0xFF00ACC1, "🕰", t("ساعت", "Clock"),
+                          t("ساعت دیجیتال به جای کادر شمارش پوشه، در وسط نوار ابزار",
+                                  "Digital clock instead of the folder counter, in the toolbar center"), "clockOn"));
+                  sec.addView(timeOpt(sec, fg, 0xFF26C6DA, "📅", t("تاریخ", "Date"),
+                          t("تاریخ شمسی به جای کادر شمارش آیکون، سمت راست ساعت",
+                                  "Jalali date instead of the icon counter, right of the clock"), "dateOn"));
+                  sec.addView(timeOpt(sec, fg, 0xFF7E57C2, "▤", t("ساعت و تاریخ", "Clock and date"),
+                          t("ساعت بزرگ و تاریخ کوچک‌تر و کم‌رنگ‌تر زیر آن، در بالای صفحه اصلی",
+                                  "Big clock with a smaller, fainter date under it"), "stackOn"));
+                  sec.addView(timeOpt(sec, fg, 0xFFFF7043, "٫", t("ممیز", "Decimal mark"),
+                          t("جداکننده‌های تاریخ به ممیز (٫) تبدیل شوند",
+                                  "Date separators become the decimal mark (٫)"), "momayyez"));
+                  sec.addView(accordionRow(0xFF8BC34A, "↕", t("فاصله تاریخ و ساعت", "Clock and date gap"),
+                          "stackGapUm", -3000, 3000, 0, " µm", fg, null));
+              }
+
+              View timeOpt(final LinearLayout sec, final int fg, int dot, String sym, String title, String sub, final String key) {
+                  View r = row(dot, sym, title, sub, sp.getBoolean(key, false) ? 3 : 2, fg, null);
+                  r.setOnClickListener(v -> {
+                      boolean now = !sp.getBoolean(key, false);
+                      SharedPreferences.Editor ed = sp.edit().putBoolean(key, now);
+                      if (now && (key.equals("clockOn") || key.equals("dateOn"))) ed.putBoolean("stackOn", false);
+                      if (now && key.equals("stackOn")) ed.putBoolean("clockOn", false).putBoolean("dateOn", false);
+                      ed.apply();
+                      timeRows(sec, fg);
+                  });
+                  return r;
+              }
+
+              // one box: big clock on top, smaller and fainter date under it (same look as the other boxes)
+              View stackBox(int fg) {
+                  LinearLayout b = new LinearLayout(this);
+                  b.setOrientation(LinearLayout.VERTICAL);
+                  b.setGravity(Gravity.CENTER);
+                  b.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+                  GradientDrawable g = new GradientDrawable();
+                  g.setCornerRadius(dp(16));
+                  g.setColor(sp.getInt("box_bg", 0x33FFFFFF));
+                  g.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
+                  b.setBackground(g);
+                  LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                          dp(sc(sp.getInt("box_w", 62))), dp(sc(sp.getInt("box_h", 40)) * 3 / 2));
+                  lp.setMargins(dp(2), 0, dp(2), 0);
+                  b.setLayoutParams(lp);
+                  int ts = Math.max(7, sc(sp.getInt("box_ts", 18)));
+
+                  TextView ck = new TextView(this);
+                  ck.setGravity(Gravity.CENTER);
+                  ck.setSingleLine(true);
+                  ck.setIncludeFontPadding(false);
+                  ck.setTextSize(ts * 0.95f);
+                  ck.setAutoSizeTextTypeUniformWithConfiguration(6, ts, 1, TypedValue.COMPLEX_UNIT_SP);
+                  ck.setTextColor(sp.getInt("box_tc", fg));
+                  ck.setTypeface(weightFace(sp.getInt("box_tw", 3)));
+                  b.addView(ck, new LinearLayout.LayoutParams(-1, 0, 1.2f));
+
+                  TextView dt = new TextView(this);
+                  dt.setGravity(Gravity.CENTER);
+                  dt.setSingleLine(true);
+                  dt.setIncludeFontPadding(false);
+                  dt.setTextSize(ts * 0.6f);
+                  dt.setAutoSizeTextTypeUniformWithConfiguration(6, Math.max(7, ts * 6 / 10), 1, TypedValue.COMPLEX_UNIT_SP);
+                  dt.setTextColor(sp.getInt("box_tc", fg));
+                  dt.setAlpha(0.65f);
+                  dt.setTypeface(weightFace(sp.getInt("box_tw", 3)));
+                  LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(-1, 0, 0.8f);
+                  dlp.topMargin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_MM, sp.getInt("stackGapUm", 0) / 1000f, getResources().getDisplayMetrics());
+                  b.addView(dt, dlp);
+
+                  setClock(ck);
+                  startTick(ck, false);
+                  setDate(dt);
+                  startTick(dt, true);
+                  longOne(b, () -> boxMenu());
+                  return b;
+              }
+
+              // position of one page or panel: rel 0 = visible, +1 = one step to the right, -1 = one step to the left
+              void applyPageTransform(View v, float rel, int anim, int W, int H) {
+                  float a = Math.abs(rel);
+                  int pw = v.getWidth() > 0 ? v.getWidth() : W;
+                  int ph = v.getHeight() > 0 ? v.getHeight() : H;
+                  v.setCameraDistance(12000f * getResources().getDisplayMetrics().density);
+                  float tx = -rel * W, ty = 0, al = 1f, scx = 1f, scy = 1f, rot = 0, rotY = 0, tz = 0;
+                  v.setPivotX(pw / 2f);
+                  v.setPivotY(ph / 2f);
+                  switch (anim) {
+                      case 1: tx = 0; al = Math.max(0f, 1f - a); break;                       // fade
+                      case 2: tx = 0; scx = Math.max(0.4f, 1f - a * 0.5f); scy = scx; al = Math.max(0f, 1f - a); break; // zoom
+                      case 3: ty = a * H * 0.25f; al = Math.max(0f, 1f - a); break;           // drop
+                      case 4: scx = Math.max(0.2f, 1f - a * 0.6f); break;                     // shutter
+                      case 5: scx = scy = Math.max(0.8f, 1f - a * 0.1f); tz = -a * 20f; break; // stack
+                      case 6: tx = 0; rotY = -rel * 90f; break;                               // flip
+                      case 7: tx = 0; v.setPivotX(rel > 0 ? 0 : pw); rotY = -rel * 60f; break; // page
+                      case 8: scx = scy = Math.max(0.75f, 1f - a * 0.25f); tz = -a * 40f; tx = -rel * W * 0.7f; al = Math.max(0f, 1f - a * 0.4f); break; // depth
+                      case 9: tx = -rel * W * 0.5f; scx = scy = Math.max(0.9f, 1f - a * 0.1f); al = Math.max(0f, 1f - a); break; // glass
+                      case 10: tx = 0; scx = scy = 1f + a * 0.3f; al = Math.max(0f, 1f - a); break; // zoom depth
+                      case 11: rotY = rel * 70f; break;                                       // 3d flip
+                      case 12: tx = 0; v.setPivotX(rel > 0 ? 0 : pw); rotY = rel * 90f; break; // 3d cube
+                      default: break;                                                         // slide
+                  }
+                  v.setTranslationX(tx);
+                  v.setTranslationY(ty);
+                  v.setTranslationZ(tz);
+                  v.setRotation(rot);
+                  v.setRotationY(rotY);
+                  v.setScaleX(scx);
+                  v.setScaleY(scy);
+                  v.setAlpha(al);
+              }
+
+              // list of transition animations under "Paged mode off" on the home settings page
+              // rows of the effect list; withDefault adds a first row that keeps the old behaviour (folders only)
+              View[] animRows(final int fg, final String key, boolean withDefault) {
+                  int cur = sp.getInt(key, withDefault ? -1 : 0);
+                  List<View> items = new ArrayList<>();
+                  if (withDefault) {
+                      items.add(row(0xFF78909C, "•", t("پیش‌فرض", "Default"), null, cur == -1 ? 3 : 2, fg,
+                              v -> { sp.edit().putInt(key, -1).apply(); show(); }));
+                  }
+                  for (int i = 0; i < ANIM_FA.length; i++) {
+                      final int idx = ANIM_IDS[i];
+                      items.add(row(0xFF26A69A, "▶", t(ANIM_FA[i], ANIM_EN[i]), null, cur == ANIM_IDS[i] ? 3 : 2, fg,
+                              v -> { sp.edit().putInt(key, idx).apply(); show(); }));
+                  }
+                  return items.toArray(new View[0]);
+              }
+
+              // home settings: effects (boxes are a little fainter)
+              View transAnimGroup(final int fg) {
+                  return accordionGroupFaded(0xFF26A69A, "🎞", t("افکت ها", "Effects"), fg, 0.6f,
+                          () -> animRows(fg, "pgAnim", false));
+              }
+
+              boolean onScreen(View v) {
+                  int[] l = new int[2];
+                  v.getLocationOnScreen(l);
+                  int sw = getResources().getDisplayMetrics().widthPixels;
+                  return l[0] >= 0 && l[0] + v.getWidth() <= sw;
               }
 
               // a tap does nothing; the settings open only after holding for 1 second
@@ -2779,12 +3055,13 @@ jobs:
               LinearLayout countersBoxes(int fg) {
                   LinearLayout box = new LinearLayout(this);
                   box.setOrientation(LinearLayout.VERTICAL);
-                  // placement of the two counters together: first lever = horizontal, second = vertical
+                                    // placement of the two counters together: first lever = horizontal, second = vertical
                   box.addView(accordionGroup(0xFF00ACC1, "↔", t("جای‌گیری", "Placement"), fg,
                           slider(t("جابجایی طولی", "Horizontal move"), "box_px", -100, 100, 0, " dp", fg, null),
                           slider(t("جابجایی عرضی", "Vertical move"), "box_py", -30, 30, 0, " dp", fg, null)));
-                  box.addView(accordionRow(0xFF2196F3, "📐", t("عرض کادرها", "Boxes width"), "box_w", 40, 140, 62, " dp", fg, null));
-                  box.addView(accordionRow(0xFF2196F3, "📐", t("ارتفاع کادرها", "Boxes height"), "box_h", 28, 80, 40, " dp", fg, null));
+                  box.addView(timeSection(fg));
+                  box.addView(accordionRow(0xFF2196F3, "📐", t("عرض کادرها", "Boxes width"), "box_w", 20, 140, 62, " dp", fg, null));
+                  box.addView(accordionRow(0xFF2196F3, "📐", t("ارتفاع کادرها", "Boxes height"), "box_h", 10, 50, 40, " dp", fg, null));
                   box.addView(accordionRow(0xFF4CAF50, "🔤", t("اندازه اعداد", "Numbers size"), "box_ts", 10, 40, 18, " sp", fg, null));
                   box.addView(accordionRow(0xFFFF9800, "⚖", t("کلفتی اعداد (۰ تا ۳)", "Numbers weight (0 to 3)"), "box_tw", 0, 3, 3, "", fg, null));
                   box.addView(row(0xFFE91E63, "🎨", t("رنگ و شفافیت کادرها", "Boxes color and transparency"), null, 0, fg,
@@ -3383,6 +3660,8 @@ jobs:
                   float x0, y0, pos0;
                   boolean drag;
                   VelocityTracker vt;
+                  Runnable onSwipeUp;
+                  boolean upFired;
                   ValueAnimator anim;
                   LinearLayout dots;
 
@@ -3400,12 +3679,14 @@ jobs:
 
                   void layoutPages() {
                       int W = getWidth();
+                      int H = getHeight();
                       if (W <= 0) return;
+                      int anim = sp.getInt("pgAnim", 0);
                       for (int i = 0; i < n; i++) {
                           if (pages[i] == null) continue;
                           float rel = i - pos;
                           rel -= n * Math.round(rel / n);
-                          pages[i].setTranslationX(-rel * W);
+                          applyPageTransform(pages[i], rel, anim, W, H);
                           pages[i].setVisibility(Math.abs(rel) < 1.01f ? View.VISIBLE : View.INVISIBLE);
                       }
                   }
@@ -3488,10 +3769,18 @@ jobs:
 
                   @Override
                   public boolean onInterceptTouchEvent(MotionEvent ev) {
-                      if (n < 2) return false;
                       int a = ev.getActionMasked();
-                      if (a == MotionEvent.ACTION_DOWN) down(ev);
-                      else if (a == MotionEvent.ACTION_MOVE) return check(ev);
+                      if (a == MotionEvent.ACTION_DOWN) { down(ev); upFired = false; return false; }
+                      if (a == MotionEvent.ACTION_MOVE && !upFired && onSwipeUp != null && !drag) {
+                          float dx = ev.getX() - x0, dy = ev.getY() - y0;
+                          if (dy < -dp(40) && Math.abs(dy) > Math.abs(dx) * 1.3f) {
+                              upFired = true;
+                              onSwipeUp.run();
+                              return false;
+                          }
+                      }
+                      if (n < 2) return false;
+                      if (a == MotionEvent.ACTION_MOVE) return check(ev);
                       return false;
                   }
 
@@ -3594,6 +3883,7 @@ jobs:
                   pg.cur = hpCur;
                   pg.pos = hpCur;
                   hpPager = pg;
+                  pg.onSwipeUp = () -> openLastClosed();
                   boolean any = false;
                   for (int p = 0; p < n; p++) {
                       List<View> views = new ArrayList<>();
@@ -3675,11 +3965,32 @@ jobs:
                   final int fadeLen = framed ? dp(24) : dp(40);
                   final int topFade = framed ? dp(10) : fadeLen;
                   final float clipR = dp(26);
+                  final LinearLayout[] fillBox = new LinearLayout[1];
                   ScrollView sv = new ScrollView(this) {
                       final Paint maskP = new Paint();
                       final Path clipP = new Path();
                       final RectF clipRf = new RectF();
                       { maskP.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN)); }
+
+                      @Override
+                      protected void onMeasure(int wSpec, int hSpec) {
+                          int hh = View.MeasureSpec.getSize(hSpec);
+                          LinearLayout fb = fillBox[0];
+                          if (fb != null && hh > 0 && fb.getChildCount() > 0) {
+                              int nRows = fb.getChildCount();
+                              int want = (hh - dres) / nRows;
+                              if (want > cellH) {
+                                  for (int r = 0; r < nRows; r++) {
+                                      ViewGroup row = (ViewGroup) fb.getChildAt(r);
+                                      for (int k = 0; k < row.getChildCount(); k++) {
+                                          row.getChildAt(k).getLayoutParams().height = want;
+                                      }
+                                  }
+                                  fb.setPadding(0, 0, 0, 0);
+                              }
+                          }
+                          super.onMeasure(wSpec, hSpec);
+                      }
 
                       @Override
                       protected void dispatchDraw(Canvas c) {
@@ -3763,6 +4074,7 @@ jobs:
                       ((LinearLayout.LayoutParams) rowsBox.getChildAt(0).getLayoutParams()).topMargin = firstNeg;
                   }
                   col.addView(rowsBox, new LinearLayout.LayoutParams(-1, -2));
+                  fillBox[0] = rowsBox;
                   if (views.isEmpty()) {
                       TextView e = new TextView(this);
                       e.setText(t("برای افزودن برنامه یا پوشه، دکمه + را بزنید", "Tap + to add apps or folders"));
@@ -4006,6 +4318,10 @@ jobs:
 
               void closeFolder() {
                   if (closing) return;
+                  if (openFolder != null) {
+                      lastClosedFolder = openFolder;
+                      sp.edit().putString("lastClosed", openFolder).apply();
+                  }
                   if (curPanel != null && folderApply != null) {
                       final Consumer<Float> ap = folderApply;
                       final View pnl = curPanel;
@@ -4356,6 +4672,40 @@ jobs:
                   postShow();
               }
 
+              // swipe up on the home page (paged mode): opens the folder that was closed last
+              void openLastClosed() {
+                  if (page != HOME || openFolder != null || lastClosedFolder == null) return;
+                  if (findFolder(lastClosedFolder) == null) return;
+                  View box = null;
+                  List<View> cl = cells.get("folder:" + lastClosedFolder);
+                  if (cl != null) {
+                      for (View c : cl) {
+                          View b = findTag(c, "fb");
+                          if (b != null) { box = b; break; }
+                      }
+                  }
+                  if (box != null && box.getWidth() > 0 && onScreen(box)) {
+                      openFolderFrom(box, lastClosedFolder, false);
+                      return;
+                  }
+                  // the folder is on another page: it grows out of the middle of the screen
+                  DisplayMetrics dm = getResources().getDisplayMetrics();
+                  int s = dp(sp.getInt("folderSz", 56));
+                  snapPanel = null;
+                  snapTabs = null;
+                  fromDock = false;
+                  openW = s;
+                  openH = s;
+                  openCx = dm.widthPixels / 2;
+                  openCy = dm.heightPixels / 2;
+                  openFolder = lastClosedFolder;
+                  editName = false;
+                  folderSettings = false;
+                  animSettings = false;
+                  animFolder = true;
+                  show();
+              }
+
               // ---- plus menu: grows out of the + button and shrinks back into it ----
               // closing no longer rebuilds the whole page at the end (that caused the lag in the last frames)
               void closePlus() {
@@ -4520,6 +4870,8 @@ jobs:
                                   show();
                               })));
                   }
+                  sb.addView(accordionGroupFaded(0xFFEC407A, "🎞", t("افکت ها", "Effects"), fg, 0.6f,
+                          () -> animRows(fg, "fdAnim", true)));
                   final boolean closeOnLaunch = sp.getBoolean("fpCloseOnLaunch", false);
                   sb.addView(row(0xFFE53935, "🔒", t("بستن پوشه", "Close Folder"),
                           t("بستن پوشه بعد از انتخاب برنامه", "Close folder after launching app"),
@@ -4720,7 +5072,7 @@ jobs:
                   // replacing one open folder by another (popup or immersive): the old one stays as a picture and fades out
                   final boolean switching = anim && sPanel != null && (!full || (sTabs != null && ov != null));
                   // animation option off: replacing one folder by another is a smooth crossfade
-                  final boolean xfade = switching && !sp.getBoolean("fpAnim", true);
+                  final boolean xfade = switching && (!sp.getBoolean("fpAnim", true) || sp.getInt("fdAnim", -1) >= 0);
                   // the neck between the open folder and the closed one in the dock only shows when the closed one stays visible
                   final boolean bridgeOn = full && fromDock && !sp.getBoolean("fpHideSmall", true);
                   final float prevCxF = prevCx;
@@ -5031,6 +5383,11 @@ jobs:
                                   bridgeV.set(true, bcx, bot, top0, half, Math.max(half, wf), bc1, bc2);
                               }
                           }
+                          if (xfade && opening[0] && sp.getInt("fdAnim", -1) >= 0) {
+                              int trA = sp.getInt("fdAnim", -1);
+                              applyPageTransform(panel, folderDir * (1f - p), trA, dm.widthPixels, dm.heightPixels);
+                              if (gPanel != null) applyPageTransform(gPanel, -folderDir * p, trA, dm.widthPixels, dm.heightPixels);
+                          }
                       };
                       folderApply = ap;
                       if (anim) {
@@ -5280,7 +5637,14 @@ jobs:
                       boolean dup = false;
                       for (List<String> l : dock1) if (l.contains(entry)) dup = true;
                       if (dup) {
-                          if (!selDock.contains(entry)) already = true; // items from the dock itself stay silent
+                          if (!selDock.contains(entry) && !k.startsWith("folder:")) {
+                              already = true;
+                              for (Item it : home) if (it.folder) it.apps.remove(entry);
+                              home.removeIf(q -> !q.folder && entry.equals(q.pkg));
+                              changed = true;
+                          } else if (!selDock.contains(entry)) {
+                              already = true;
+                          } // items from the dock itself stay silent
                           continue;
                       }
                       List<String> l = dockPageList(Math.min(dockPage1, pages - 1));
@@ -5288,6 +5652,11 @@ jobs:
                       if (k.startsWith("folder:")) {
                           Item f = findFolder(k.substring(7));
                           if (f != null) f.docked = true; // keep the folder data, just hide it from the grid
+                      }
+                      if (!k.startsWith("folder:") && !selDock.contains(entry)) {
+                          // moved from the home page or from a folder: it leaves there
+                          for (Item it : home) if (it.folder) it.apps.remove(entry);
+                          home.removeIf(q -> !q.folder && entry.equals(q.pkg));
                       }
                       l.add(entry);
                       changed = true;
@@ -5510,6 +5879,7 @@ jobs:
                                   "On: one page that scrolls down. Off: several pages that turn left and right"),
                           "hpScroll", true, fg, () -> { onPagesToggled(); show(); }));
                   // icon settings open right here, in lighter glass boxes
+                  if (pagedMode()) r.addView(transAnimGroup(fg));
                   r.addView(accordionGroupFaded(0xFFAB47BC, "🧩", t("آیکون", "Icon"), fg, 0.6f, () -> iconItems(fg)));
                   return wrapScroll(r);
               }
