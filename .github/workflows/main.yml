@@ -991,7 +991,10 @@ jobs:
                   lastClosedFolder = sp.getString("lastClosed", null);
                   if (sp.getBoolean("fpKeep", false)) {
                       String kf = sp.getString("keepFolder", "");
-                      if (kf != null && !kf.isEmpty() && findFolder(kf) != null) openFolder = kf;
+                      if (kf != null && !kf.isEmpty() && findFolder(kf) != null) {
+                          openFolder = kf;
+                          fromDock = findFolder(kf).docked;
+                      }
                   }
                   checkMockIntent(getIntent());
                   // keep the shortcut tile state equal to the saved choice
@@ -1140,6 +1143,9 @@ jobs:
               @Override
               protected void onStart() {
                   super.onStart();
+                  instCache.clear();
+                  iconCache.clear();
+                  labelCache.clear();
                   sp.edit().putBoolean("open", true).apply();
                   MockBubbleService.launcherVisible = true;
                   MockBubbleService.refresh();
@@ -1717,17 +1723,40 @@ jobs:
                   return f.name.isEmpty() ? t("پوشه", "Folder") : f.name;
               }
 
+              Map<String, Boolean> instCache = new HashMap<>();
+              Map<String, Drawable> iconCache = new HashMap<>();
+              Map<String, String> labelCache = new HashMap<>();
+
               boolean installed(String p) {
+                  Boolean b = instCache.get(p);
+                  if (b == null) { b = installedRaw(p); instCache.put(p, b); }
+                  return b;
+              }
+
+              Drawable icon(String p) {
+                  if (iconCache.containsKey(p)) return iconCache.get(p);
+                  Drawable d = iconRaw(p);
+                  if (d != null) iconCache.put(p, d);
+                  return d;
+              }
+
+              String label(String p) {
+                  String s = labelCache.get(p);
+                  if (s == null) { s = labelRaw(p); labelCache.put(p, s); }
+                  return s;
+              }
+
+              boolean installedRaw(String p) {
                   try { getPackageManager().getApplicationInfo(p, 0); return true; }
                   catch (Exception e) { return false; }
               }
 
-              Drawable icon(String p) {
+              Drawable iconRaw(String p) {
                   try { return getPackageManager().getApplicationIcon(p); }
                   catch (Exception e) { return null; }
               }
 
-              String label(String p) {
+              String labelRaw(String p) {
                   try {
                       PackageManager pm = getPackageManager();
                       return pm.getApplicationLabel(pm.getApplicationInfo(p, 0)).toString();
@@ -2463,7 +2492,8 @@ jobs:
 
               void saveKeep() {
               if (sp.getBoolean("fpKeep", false)) {
-                  sp.edit().putString("keepFolder", openFolder == null ? "" : openFolder).commit();
+                  String kv = openFolder == null ? "" : openFolder;
+                  if (!kv.equals(sp.getString("keepFolder", ""))) sp.edit().putString("keepFolder", kv).apply();
               }
           }
 
@@ -5060,7 +5090,17 @@ jobs:
                   return c;
               }
 
-              View folderPopup(final int fg) {
+              View folderBoxOf(String id) {
+              List<View> cl = cells.get("folder:" + id);
+              if (cl == null) return null;
+              for (View c : cl) {
+                  View b = findTag(c, "fb");
+                  if (b != null) return b;
+              }
+              return null;
+          }
+
+          View folderPopup(final int fg) {
                   final Item f = findFolder(openFolder);
                   final FrameLayout wrap = new FrameLayout(this);
                   if (f == null) { openFolder = null; return wrap; }
@@ -5257,6 +5297,18 @@ jobs:
                   final int[] ovl = new int[2];
                   if (anim) panel.setAlpha(0f);
                   panel.post(() -> {
+                      if (!anim) {
+                          // no opening animation (e.g. restored after a fresh start): use the closed box as origin
+                          View kb = folderBoxOf(f.id);
+                          if (kb != null && kb.getWidth() > 0) {
+                              int[] bl = new int[2];
+                              kb.getLocationOnScreen(bl);
+                              openCx = bl[0] + kb.getWidth() / 2;
+                              openCy = bl[1] + kb.getHeight() / 2;
+                              openW = Math.max(dp(20), kb.getWidth());
+                              openH = Math.max(dp(20), kb.getHeight());
+                          }
+                      }
                       int[] wl = new int[2];
                       wrap.getLocationOnScreen(wl);
                       final float pcx = wl[0] + panel.getLeft() + panel.getWidth() / 2f;
