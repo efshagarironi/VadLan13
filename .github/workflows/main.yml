@@ -989,6 +989,10 @@ jobs:
                   fixDocked();
                   notifyBar();
                   lastClosedFolder = sp.getString("lastClosed", null);
+                  if (sp.getBoolean("fpKeep", false)) {
+                      String kf = sp.getString("keepFolder", "");
+                      if (kf != null && !kf.isEmpty() && findFolder(kf) != null) openFolder = kf;
+                  }
                   checkMockIntent(getIntent());
                   // keep the shortcut tile state equal to the saved choice
                   try {
@@ -1074,6 +1078,10 @@ jobs:
                           }
                       }
                       if (!inside) {
+                          if (sp.getBoolean("fpKeep", false)) {
+                              if (hit(homeMenuV, ev) || hit(homePlusV, ev) || hit(countBarV, ev)) return super.dispatchTouchEvent(ev);
+                              return true;
+                          }
                           closeFolder();
                           return true;
                       }
@@ -1086,7 +1094,7 @@ jobs:
                   super.onNewIntent(in);
                   setIntent(in);
                   page = HOME;
-                  openFolder = null;
+                  if (!sp.getBoolean("fpKeep", false)) openFolder = null;
                   plusOpen = false;
                   folderSettings = false;
                   sel.clear();
@@ -2453,7 +2461,14 @@ jobs:
                   return new int[]{top + dp(10), bot};
               }
 
+              void saveKeep() {
+              if (sp.getBoolean("fpKeep", false)) {
+                  sp.edit().putString("keepFolder", openFolder == null ? "" : openFolder).commit();
+              }
+          }
+
               void show() {
+                  saveKeep();
                   boolean mp = menuPage();
                   int fg = 0xFFFFFFFF;
                   if (mp && mbgBmp == null && isLight(solid(mbg()))) fg = 0xFF111111;
@@ -2611,7 +2626,7 @@ jobs:
                   mid.setClipChildren(false);
                   // home frame: a panel like the immersive folder, from the top of the dock up to the top icons
                   final boolean framed = sp.getBoolean("hfOn", false);
-                  if (framed) {
+                  if (framed && !(pagedMode() && sp.getBoolean("hfFx", false))) {
                       frameV = new View(this);
                       frameV.setBackground(new FrameDrawable(sp.getInt("hfBg", 0x6628282C), false,
                               dp(26), dp(3), hfSrc, sp.getInt("hfZoom", 100) / 100f, sp.getInt("hfPx", 50) / 100f,
@@ -3901,6 +3916,11 @@ jobs:
                       GridPage page = new GridPage(this, rowsBox, pgRows, dp(8),
                               sp.getBoolean("hfOn", false) ? dp(16) : dockReserve() + dp(20), cH);
                       page.setClipChildren(false);
+                      if (sp.getBoolean("hfFx", false) && sp.getBoolean("hfOn", false)) {
+                          page.setBackground(new FrameDrawable(sp.getInt("hfBg", 0x6628282C), false, dp(26), dp(3), hfSrc,
+                                  sp.getInt("hfZoom", 100) / 100f, sp.getInt("hfPx", 50) / 100f,
+                                  sp.getInt("hfPy", 50) / 100f, sp.getInt("hfFade", 0)));
+                      }
                       final int pi = p;
                       page.setOnDragListener((w, ev) -> {
                           if (ev.getAction() == DragEvent.ACTION_DROP) {
@@ -3965,32 +3985,11 @@ jobs:
                   final int fadeLen = framed ? dp(24) : dp(40);
                   final int topFade = framed ? dp(10) : fadeLen;
                   final float clipR = dp(26);
-                  final LinearLayout[] fillBox = new LinearLayout[1];
                   ScrollView sv = new ScrollView(this) {
                       final Paint maskP = new Paint();
                       final Path clipP = new Path();
                       final RectF clipRf = new RectF();
                       { maskP.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN)); }
-
-                      @Override
-                      protected void onMeasure(int wSpec, int hSpec) {
-                          int hh = View.MeasureSpec.getSize(hSpec);
-                          LinearLayout fb = fillBox[0];
-                          if (fb != null && hh > 0 && fb.getChildCount() > 0) {
-                              int nRows = fb.getChildCount();
-                              int want = (hh - dres) / nRows;
-                              if (want > cellH) {
-                                  for (int r = 0; r < nRows; r++) {
-                                      ViewGroup row = (ViewGroup) fb.getChildAt(r);
-                                      for (int k = 0; k < row.getChildCount(); k++) {
-                                          row.getChildAt(k).getLayoutParams().height = want;
-                                      }
-                                  }
-                                  fb.setPadding(0, 0, 0, 0);
-                              }
-                          }
-                          super.onMeasure(wSpec, hSpec);
-                      }
 
                       @Override
                       protected void dispatchDraw(Canvas c) {
@@ -4074,7 +4073,6 @@ jobs:
                       ((LinearLayout.LayoutParams) rowsBox.getChildAt(0).getLayoutParams()).topMargin = firstNeg;
                   }
                   col.addView(rowsBox, new LinearLayout.LayoutParams(-1, -2));
-                  fillBox[0] = rowsBox;
                   if (views.isEmpty()) {
                       TextView e = new TextView(this);
                       e.setText(t("برای افزودن برنامه یا پوشه، دکمه + را بزنید", "Tap + to add apps or folders"));
@@ -4345,6 +4343,7 @@ jobs:
                           public void onAnimationEnd(Animator an) {
                               closing = false;
                               openFolder = null;
+                              saveKeep();
                               editName = false;
                               folderSettings = false;
                               // no full rebuild (it made the last frames stutter): only tidy up in place
@@ -4793,7 +4792,6 @@ jobs:
                   r.setOnClickListener(c);
                   return r;
               }
-
               void addFolderDialog(final List<String> initial) {
                   final EditText et = new EditText(this);
                   et.setHint(t("نام پوشه", "Folder name"));
@@ -4851,6 +4849,14 @@ jobs:
                                   "Remove the header boxes of the immersive folder (icons stay)"),
                           noBox ? 3 : 2, fg, w -> {
                       sp.edit().putBoolean("fpNoBox", !noBox).apply();
+                      show();
+                  }));
+                  final boolean keepF = sp.getBoolean("fpKeep", false);
+                  sb.addView(row(0xFF43A047, "📌", t("حفظ پوشه", "Keep folder open"),
+                          t("پوشه باز تا زمانی که خودت می‌بندی باز می‌ماند، حتی بعد از بستن لانچر",
+                                  "The open folder stays open until you close it, even after the launcher was closed"),
+                          keepF ? 3 : 2, fg, w -> {
+                      sp.edit().putBoolean("fpKeep", !keepF).commit();
                       show();
                   }));
                   // animation: on = the grow animation plays every time; off = it plays once, then crossfade
@@ -5879,6 +5885,10 @@ jobs:
                                   "On: one page that scrolls down. Off: several pages that turn left and right"),
                           "hpScroll", true, fg, () -> { onPagesToggled(); show(); }));
                   // icon settings open right here, in lighter glass boxes
+                  r.addView(toggleRow(0xFF7E57C2, "▣", t("افکت کادر", "Frame effect"),
+                          t("افکت صفحه روی کل کادر صفحه اصلی اجرا می‌شود و آیکون‌ها با کادر جابجا می‌شوند (نیاز به صفحات افقی و کادر روشن)",
+                                  "The page effect runs on the whole home frame and the icons move with it (needs paged mode and frame on)"),
+                          "hfFx", false, fg));
                   if (pagedMode()) r.addView(transAnimGroup(fg));
                   r.addView(accordionGroupFaded(0xFFAB47BC, "🧩", t("آیکون", "Icon"), fg, 0.6f, () -> iconItems(fg)));
                   return wrapScroll(r);
