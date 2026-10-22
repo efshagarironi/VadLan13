@@ -14,7 +14,7 @@ jobs:
           gradle-version: 8.7
       - name: Create project files
         run: |
-          mkdir -p app/src/main/java/com/mylauncher app/src/main/res/drawable app/src/main/res/mipmap-anydpi-v26 app/src/main/assets/fonts/fa app/src/main/assets/fonts/en
+          mkdir -p app/src/main/java/com/mylauncher app/src/main/res/drawable app/src/main/res/xml app/src/main/res/values app/src/main/res/mipmap-anydpi-v26 app/src/main/assets/fonts/fa app/src/main/assets/fonts/en
 
           dl() { curl -fsSL --retry 2 --max-time 90 -o "app/src/main/assets/fonts/$1" "$2" || rm -f "app/src/main/assets/fonts/$1"; }
           G=https://github.com/google/fonts/raw/main/ofl
@@ -110,8 +110,10 @@ jobs:
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools">
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
               <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
               <uses-permission android:name="android.permission.VIBRATE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -154,6 +156,18 @@ jobs:
                       </intent-filter>
                   </service>
                   <service
+                      android:name=".TileClickService"
+                      android:exported="true"
+                      android:label="VadLan"
+                      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+                      <intent-filter>
+                          <action android:name="android.accessibilityservice.AccessibilityService" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="android.accessibilityservice"
+                          android:resource="@xml/tile_a11y" />
+                  </service>
+                  <service
                       android:name=".MockBubbleService"
                       android:enabled="true"
                       android:exported="false"
@@ -177,35 +191,30 @@ jobs:
 
           cat > app/src/main/res/drawable/ic_bg.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:aapt="http://schemas.android.com/aapt"
               android:width="108dp" android:height="108dp"
               android:viewportWidth="108" android:viewportHeight="108">
-              <path android:pathData="M0,0h108v108h-108z">
-                  <aapt:attr name="android:fillColor">
-                      <gradient android:startX="0" android:startY="0" android:endX="108" android:endY="108" android:type="linear">
-                          <item android:offset="0" android:color="#FF1A237E"/>
-                          <item android:offset="0.55" android:color="#FF3949AB"/>
-                          <item android:offset="1" android:color="#FF5C6BC0"/>
-                      </gradient>
-                  </aapt:attr>
-              </path>
+              <path android:fillColor="#FF101615" android:pathData="M0,0h108v108h-108z"/>
           </vector>
           EOF
 
           cat > app/src/main/res/drawable/ic_fg.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:aapt="http://schemas.android.com/aapt"
               android:width="108dp" android:height="108dp"
               android:viewportWidth="108" android:viewportHeight="108">
-              <path android:fillColor="#FFFF5252" android:pathData="M32,28h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF40C4FF" android:pathData="M51,28h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FFFFAB40" android:pathData="M70,28h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF69F0AE" android:pathData="M32,47h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FFFFFFFF" android:pathData="M51,47h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF3D5AFE" android:pathData="M54,50.5a3.5,3.5 0 1 0 0.01,0z"/>
-              <path android:fillColor="#FFB388FF" android:pathData="M70,47h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FFFF80AB" android:pathData="M32,66h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FFFFE57F" android:pathData="M51,66h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF64FFDA" android:pathData="M70,66h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
+              <path android:pathData="M25,72 A29,29 0,0 0,83 72 A29,29 0,0 0,25 72">
+                  <aapt:attr name="android:fillColor"><gradient android:startX="30" android:startY="65" android:endX="78" android:endY="82" android:type="radial"><item android:offset="0" android:color="#99000000"/><item android:offset="0.65" android:color="#55000000"/><item android:offset="1" android:color="#00000000"/></gradient></aapt:attr>
+              </path>
+              <path android:fillColor="#FFC4A054" android:pathData="M54,13 A41,41 0,1 0,54,95 A41,41 0,1 0,54,13 M54,18 A36,36 0,1 1,54,90 A36,36 0,1 1,54,18" android:fillType="evenOdd"/>
+              <path android:fillColor="#FFE2B86A" android:pathData="M54,15 A39,39 0,0 1,88,34"/>
+              <path android:pathData="M54,19 A34,34 0,1 0,54,87 A34,34 0,1 0,54,19">
+                  <aapt:attr name="android:fillColor"><gradient android:startX="33" android:startY="27" android:endX="77" android:endY="80" android:type="radial"><item android:offset="0" android:color="#FFE4FFF7"/><item android:offset="0.32" android:color="#FF9FD8CA"/><item android:offset="0.68" android:color="#FF4F9588"/><item android:offset="1" android:color="#FF1E514A"/></gradient></aapt:attr>
+              </path>
+              <path android:fillColor="#44FFFFFF" android:pathData="M35,31 C42,22 55,20 64,24 C54,27 46,34 42,43 C37,41 34,37 35,31z"/>
+              <path android:fillColor="#88DCEBE8" android:pathData="M54,19 A34,34 0,1 0,54,87 A34,34 0,1 0,54,19 M54,22 A31,31 0,1 1,54,84 A31,31 0,1 1,54,22" android:fillType="evenOdd"/>
+              <path android:fillColor="#1B342F" android:pathData="M36,35h9l10,29 10,-29h9L58,76h-7z"/>
+              <path android:fillColor="#BFEADF" android:pathData="M35,33h9l10,29 10,-29h9L58,74h-7z"/>
+              <path android:fillColor="#66FFFFFF" android:pathData="M39,34h5l10,29 -2,4z"/>
           </vector>
           EOF
 
@@ -213,15 +222,10 @@ jobs:
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="108dp" android:height="108dp"
               android:viewportWidth="108" android:viewportHeight="108">
-              <path android:fillColor="#FF000000" android:pathData="M32,28h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF000000" android:pathData="M51,28h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF000000" android:pathData="M70,28h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF000000" android:pathData="M32,47h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF000000" android:fillType="evenOdd" android:pathData="M51,47h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z M54,50.5a3.5,3.5 0 1 0 0.01,0z"/>
-              <path android:fillColor="#FF000000" android:pathData="M70,47h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF000000" android:pathData="M32,66h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF000000" android:pathData="M51,66h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
-              <path android:fillColor="#FF000000" android:pathData="M70,66h6a4,4 0 0 1 4,4v6a4,4 0 0 1 -4,4h-6a4,4 0 0 1 -4,-4v-6a4,4 0 0 1 4,-4z"/>
+              <path android:fillColor="#FF000000" android:pathData="M25,72 A29,29 0,0 0,83 72 A29,29 0,0 0,25 72"/>
+              <path android:fillColor="#FF000000" android:pathData="M54,13 A41,41 0,1 0,54,95 A41,41 0,1 0,54,13 M54,18 A36,36 0,1 1,54,90 A36,36 0,1 1,54,18" android:fillType="evenOdd"/>
+              <path android:fillColor="#FF000000" android:pathData="M54,19 A34,34 0,1 0,54,87 A34,34 0,1 0,54,19"/>
+              <path android:fillColor="#FFFFFFFF" android:pathData="M35,33h9l10,29 10,-29h9L58,74h-7z"/>
           </vector>
           EOF
 
@@ -263,6 +267,378 @@ jobs:
               android:viewportWidth="24" android:viewportHeight="24">
               <path android:fillColor="#FFFFFF" android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
           </vector>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="a11y_desc">Lets the VadLan bubble tap a Quick Settings tile (for example a VPN tile) for you.</string>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/xml/tile_a11y.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+              android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewClicked"
+              android:accessibilityFeedbackType="feedbackGeneric"
+              android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
+              android:canRetrieveWindowContent="true"
+              android:description="@string/a11y_desc"
+              android:notificationTimeout="100" />
+          EOF
+
+          cat > app/src/main/java/com/mylauncher/TileClickService.java <<'EOF'
+          package com.mylauncher;
+
+          import android.accessibilityservice.AccessibilityService;
+          import android.content.Intent;
+          import android.os.Build;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.content.SharedPreferences;
+          import android.graphics.PixelFormat;
+          import android.graphics.drawable.GradientDrawable;
+          import android.view.Gravity;
+          import android.view.WindowManager;
+          import android.view.accessibility.AccessibilityEvent;
+          import android.view.accessibility.AccessibilityNodeInfo;
+          import android.view.accessibility.AccessibilityWindowInfo;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import java.util.ArrayList;
+          import java.util.List;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          // opens Quick Settings, taps the tile with the given name and closes the panel again
+          public class TileClickService extends AccessibilityService {
+              static TileClickService inst;
+              private final Handler h = new Handler(Looper.getMainLooper());
+              private String want = "";
+              private int tries = 0;
+              private boolean busy = false;
+
+              static boolean ready() { return inst != null; }
+
+              static boolean click(String name) {
+                  if (inst == null || name == null || name.trim().isEmpty()) return false;
+                  inst.start(name.trim());
+                  return true;
+              }
+
+              @Override
+              protected void onServiceConnected() { inst = this; }
+
+              @Override
+              public boolean onUnbind(Intent i) {
+                  inst = null;
+                  return super.onUnbind(i);
+              }
+
+              @Override
+              public void onDestroy() {
+                  inst = null;
+                  super.onDestroy();
+              }
+
+              // ---------- recording the taps made inside an app ----------
+              private String recPkg = null;
+              private int recSlot = -1;
+              private JSONArray recSteps = new JSONArray();
+              private String lastStep = "";
+              private long lastStepAt = 0;
+              private TextView pill;
+
+              private boolean fa() { return getSharedPreferences("l", 0).getString("lang", "fa").equals("fa"); }
+
+              private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density); }
+
+              static boolean record(String pkg, int slot) {
+                  if (inst == null) return false;
+                  inst.startRecord(pkg, slot);
+                  return true;
+              }
+
+              private void launch(String pkg) {
+                  try {
+                      Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
+                      if (i != null) {
+                          // a fresh start, so every recording and every replay begins on the first screen of the app
+                          i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                          startActivity(i);
+                      }
+                  } catch (Throwable e) { }
+              }
+
+              private void startRecord(String pkg, int slot) {
+                  recPkg = pkg;
+                  recSlot = slot;
+                  recSteps = new JSONArray();
+                  lastStep = "";
+                  launch(pkg);
+                  showPill();
+              }
+
+              private void showPill() {
+                  if (pill != null) return;
+                  try {
+                      WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                      pill = new TextView(this);
+                      pill.setTextColor(0xFFFFFFFF);
+                      pill.setTextSize(14);
+                      pill.setPadding(dp(18), dp(10), dp(18), dp(10));
+                      GradientDrawable g = new GradientDrawable();
+                      g.setCornerRadius(dp(30));
+                      g.setColor(0xEEE53935);
+                      pill.setBackground(g);
+                      pill.setOnClickListener(v -> finishRecord());
+                      updatePill();
+                      WindowManager.LayoutParams lp = new WindowManager.LayoutParams(-2, -2,
+                              WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                              WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
+                      lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+                      lp.y = dp(56);
+                      wm.addView(pill, lp);
+                  } catch (Throwable e) { pill = null; }
+              }
+
+              private void updatePill() {
+                  if (pill != null) pill.setText((fa() ? "⏹ پایان ضبط (" : "⏹ Stop recording (") + recSteps.length() + ")");
+              }
+
+              private void hidePill() {
+                  try {
+                      if (pill != null) ((WindowManager) getSystemService(WINDOW_SERVICE)).removeView(pill);
+                  } catch (Throwable e) { }
+                  pill = null;
+              }
+
+              // the visible name of a view: its own text, or the first text inside it
+              private String labelOf(AccessibilityNodeInfo n, int depth) {
+                  if (n == null) return "";
+                  CharSequence t = n.getText();
+                  if (t != null && t.toString().trim().length() > 0) return t.toString().trim();
+                  CharSequence d = n.getContentDescription();
+                  if (d != null && d.toString().trim().length() > 0) return d.toString().trim();
+                  if (depth <= 0) return "";
+                  for (int i = 0; i < n.getChildCount(); i++) {
+                      String s = labelOf(n.getChild(i), depth - 1);
+                      if (!s.isEmpty()) return s;
+                  }
+                  return "";
+              }
+
+              @Override
+              public void onAccessibilityEvent(AccessibilityEvent e) {
+                  if (recPkg == null || e.getEventType() != AccessibilityEvent.TYPE_VIEW_CLICKED) return;
+                  if (!recPkg.equals(String.valueOf(e.getPackageName()))) return;
+                  AccessibilityNodeInfo n = e.getSource();
+                  if (n == null) return;
+                  try {
+                      String t = labelOf(n, 3);
+                      String id = n.getViewIdResourceName() == null ? "" : n.getViewIdResourceName();
+                      if (t.isEmpty() && id.isEmpty()) return;
+                      String key = t + "|" + id;
+                      long now = System.currentTimeMillis();
+                      if (key.equals(lastStep) && now - lastStepAt < 400) return;
+                      lastStep = key;
+                      lastStepAt = now;
+                      JSONObject o = new JSONObject();
+                      o.put("t", t);
+                      o.put("id", id);
+                      recSteps.put(o);
+                      updatePill();
+                  } catch (Throwable ex) { }
+              }
+
+              private void finishRecord() {
+                  hidePill();
+                  String pkg = recPkg;
+                  int slot = recSlot;
+                  JSONArray st = recSteps;
+                  recPkg = null;
+                  if (pkg == null) return;
+                  try {
+                      SharedPreferences sp = getSharedPreferences("l", 0);
+                      BubbleActs.Act[] a = BubbleActs.load(sp);
+                      if (slot >= 0 && slot < a.length && a[slot] != null && pkg.equals(a[slot].pkg)) {
+                          a[slot].id = st.toString();
+                          a[slot].label = "🎬 " + st.length() + (fa() ? " مرحله" : " steps");
+                          BubbleActs.save(sp, a);
+                      }
+                  } catch (Throwable e) { }
+                  Toast.makeText(this, fa() ? "ضبط ذخیره شد" : "Recording saved", Toast.LENGTH_SHORT).show();
+                  try {
+                      Intent i = new Intent(this, MainActivity.class)
+                              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                              .putExtra("open_acts", true);
+                      startActivity(i);
+                  } catch (Throwable e) { }
+              }
+
+              // ---------- playing the recorded taps back ----------
+              private JSONArray steps = new JSONArray();
+              private int stepIdx = 0, stepTries = 0;
+              private String repPkg = "";
+
+              static boolean replay(String pkg, String json) {
+                  if (inst == null) return false;
+                  inst.startReplay(pkg, json);
+                  return true;
+              }
+
+              private void startReplay(String pkg, String json) {
+                  if (busy) return;
+                  try { steps = new JSONArray(json == null || json.isEmpty() ? "[]" : json); } catch (Throwable e) { steps = new JSONArray(); }
+                  repPkg = pkg;
+                  stepIdx = 0;
+                  stepTries = 0;
+                  busy = true;
+                  launch(pkg);
+                  h.postDelayed(stepRun, 1500);
+              }
+
+              private final Runnable stepRun = new Runnable() {
+                  @Override
+                  public void run() {
+                      if (stepIdx >= steps.length()) { busy = false; return; }
+                      JSONObject o = steps.optJSONObject(stepIdx);
+                      if (o != null && tapStep(o.optString("t"), o.optString("id"))) {
+                          stepIdx++;
+                          stepTries = 0;
+                          h.postDelayed(this, 900);
+                          return;
+                      }
+                      if (++stepTries < 26) {
+                          h.postDelayed(this, 300);
+                      } else {
+                          busy = false;
+                          Toast.makeText(TileClickService.this, (fa() ? "مرحله " : "Step ") + (stepIdx + 1)
+                                  + (fa() ? " پیدا نشد؛ دوباره ضبط کنید" : " not found; record it again"), Toast.LENGTH_LONG).show();
+                      }
+                  }
+              };
+
+              private boolean clickUp(AccessibilityNodeInfo n) {
+                  AccessibilityNodeInfo c = n;
+                  for (int i = 0; i < 7 && c != null; i++) {
+                      if (c.isClickable() && c.isEnabled() && c.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
+                      c = c.getParent();
+                  }
+                  return false;
+              }
+
+              private boolean tapStep(String text, String id) {
+                  for (AccessibilityNodeInfo root : roots()) {
+                      if (!repPkg.equals(String.valueOf(root.getPackageName()))) continue;
+                      List<AccessibilityNodeInfo> exact = new ArrayList<>(), loose = new ArrayList<>();
+                      if (!text.isEmpty()) {
+                          List<AccessibilityNodeInfo> hits = root.findAccessibilityNodeInfosByText(text);
+                          if (hits != null) for (AccessibilityNodeInfo n : hits) {
+                              if (labelOf(n, 0).equalsIgnoreCase(text)) exact.add(n); else loose.add(n);
+                          }
+                      }
+                      if (exact.isEmpty() && loose.isEmpty() && !id.isEmpty()) {
+                          List<AccessibilityNodeInfo> hits = root.findAccessibilityNodeInfosByViewId(id);
+                          if (hits != null) exact.addAll(hits);
+                      }
+                      for (AccessibilityNodeInfo n : exact) if (clickUp(n)) return true;
+                      for (AccessibilityNodeInfo n : loose) if (clickUp(n)) return true;
+                  }
+                  return false;
+              }
+
+              @Override
+              public void onInterrupt() { }
+
+              private void start(String name) {
+                  if (busy) return;
+                  busy = true;
+                  want = name.toLowerCase();
+                  tries = 0;
+                  performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS);
+                  h.postDelayed(poll, 400);
+              }
+
+              private final Runnable poll = new Runnable() {
+                  @Override
+                  public void run() {
+                      tries++;
+                      // first the nodes that sit inside a tile; later any button with that name
+                      if (tap(tries < 8)) {
+                          h.postDelayed(close, 600);
+                          return;
+                      }
+                      if (tries < 24) {
+                          h.postDelayed(this, 200);
+                      } else {
+                          closePanel();
+                          busy = false;
+                          Toast.makeText(TileClickService.this, "Tile not found: " + want, Toast.LENGTH_LONG).show();
+                      }
+                  }
+              };
+
+              private final Runnable close = new Runnable() {
+                  @Override
+                  public void run() {
+                      closePanel();
+                      h.postDelayed(new Runnable() {
+                          @Override
+                          public void run() { busy = false; }
+                      }, 500);
+                  }
+              };
+
+              private void closePanel() {
+                  if (Build.VERSION.SDK_INT >= 31) performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE);
+                  else performGlobalAction(GLOBAL_ACTION_BACK);
+              }
+
+              private List<AccessibilityNodeInfo> roots() {
+                  List<AccessibilityNodeInfo> l = new ArrayList<>();
+                  try {
+                      List<AccessibilityWindowInfo> ws = getWindows();
+                      if (ws != null) for (AccessibilityWindowInfo w : ws) {
+                          AccessibilityNodeInfo r = w.getRoot();
+                          if (r != null) l.add(r);
+                      }
+                  } catch (Throwable e) { }
+                  if (l.isEmpty()) {
+                      AccessibilityNodeInfo r = getRootInActiveWindow();
+                      if (r != null) l.add(r);
+                  }
+                  return l;
+              }
+
+              private boolean insideTile(AccessibilityNodeInfo n) {
+                  AccessibilityNodeInfo p = n;
+                  for (int i = 0; i < 6 && p != null; i++) {
+                      String id = p.getViewIdResourceName();
+                      if (id != null && id.toLowerCase().contains("tile")) return true;
+                      p = p.getParent();
+                  }
+                  return false;
+              }
+
+              private boolean tap(boolean strict) {
+                  for (AccessibilityNodeInfo root : roots()) {
+                      if (getPackageName().equals(String.valueOf(root.getPackageName()))) continue;
+                      List<AccessibilityNodeInfo> hits = root.findAccessibilityNodeInfosByText(want);
+                      if (hits == null) continue;
+                      for (AccessibilityNodeInfo n : hits) {
+                          if (strict && !insideTile(n)) continue;
+                          AccessibilityNodeInfo c = n;
+                          for (int i = 0; i < 6 && c != null; i++) {
+                              if (c.isClickable() && c.isEnabled()) {
+                                  if (c.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
+                              }
+                              c = c.getParent();
+                          }
+                      }
+                  }
+                  return false;
+              }
+          }
           EOF
 
           cat > app/src/main/java/com/mylauncher/VadTile.java <<'EOF'
@@ -437,9 +813,271 @@ jobs:
           }
           EOF
 
+          cat > app/src/main/java/com/mylauncher/BubbleActs.java <<'EOF'
+          package com.mylauncher;
+
+          import android.app.AppOpsManager;
+          import android.app.usage.UsageEvents;
+          import android.app.usage.UsageStatsManager;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.content.pm.LauncherApps;
+          import android.content.pm.PackageManager;
+          import android.content.pm.ShortcutInfo;
+          import android.os.Process;
+          import android.provider.Settings;
+          import android.widget.Toast;
+          import java.util.ArrayList;
+          import java.util.LinkedHashSet;
+          import java.util.List;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          // the bubble "actions": up to 20 saved ways of starting something inside an app
+          // (an app shortcut, the last screen of the app, or just the app itself)
+          public class BubbleActs {
+              static final int MAX = 20;
+
+              static class Act {
+                  String pkg, type, id, label, name = "";   // name = the custom name shown in the bubble list; type: "sc" shortcut, "cmp" screen, "rcv" receiver, "svc" service, "tile" quick settings tile, "macro" recorded taps inside the app (steps in id), "app" open the app (id: "popup" or "full")
+                  long ts;                       // last time this action was saved / chosen
+              }
+
+              static Act[] load(SharedPreferences sp) {
+                  Act[] a = new Act[MAX];
+                  try {
+                      JSONArray arr = new JSONArray(sp.getString("bub_acts", "[]"));
+                      for (int i = 0; i < arr.length() && i < MAX; i++) {
+                          JSONObject o = arr.optJSONObject(i);
+                          if (o == null || !o.has("pkg")) continue;
+                          Act x = new Act();
+                          x.pkg = o.optString("pkg");
+                          x.type = o.optString("type", "app");
+                          x.id = o.optString("id", "");
+                          x.label = o.optString("label", "");
+                          x.name = o.optString("name", "");
+                          x.ts = o.optLong("ts", 0);
+                          a[i] = x;
+                      }
+                  } catch (Exception e) { }
+                  return a;
+              }
+
+              static void save(SharedPreferences sp, Act[] a) {
+                  JSONArray arr = new JSONArray();
+                  try {
+                      for (int i = 0; i < MAX; i++) {
+                          JSONObject o = new JSONObject();
+                          Act x = a[i];
+                          if (x != null) {
+                              o.put("pkg", x.pkg);
+                              o.put("type", x.type);
+                              o.put("id", x.id == null ? "" : x.id);
+                              o.put("label", x.label == null ? "" : x.label);
+                              o.put("name", x.name == null ? "" : x.name);
+                              o.put("ts", x.ts);
+                          }
+                          arr.put(o);
+                      }
+                  } catch (Exception e) { }
+                  sp.edit().putString("bub_acts", arr.toString()).apply();
+              }
+
+              static int count(Act[] a) {
+                  int n = 0;
+                  for (Act x : a) if (x != null) n++;
+                  return n;
+              }
+
+              // apps that have at least one action, in slot order
+              static List<String> pkgs(Act[] a) {
+                  LinkedHashSet<String> s = new LinkedHashSet<>();
+                  for (Act x : a) if (x != null) s.add(x.pkg);
+                  return new ArrayList<>(s);
+              }
+
+              // the action that is used when the app name is tapped in the bubble list: the most recent one
+              static Act current(Act[] a, String pkg) {
+                  Act best = null;
+                  for (Act x : a)
+                      if (x != null && x.pkg.equals(pkg) && (best == null || x.ts > best.ts)) best = x;
+                  return best;
+              }
+
+              // the name shown in the bubble list: the custom name, or the app name
+              static String title(Context c, Act x) {
+                  return x.name != null && !x.name.isEmpty() ? x.name : appLabel(c, x.pkg);
+              }
+
+              // asks the person to turn on the accessibility service (needed for tiles and recorded taps)
+              static void needA11y(Context c) {
+                  boolean fa = c.getSharedPreferences("l", 0).getString("lang", "fa").equals("fa");
+                  Toast.makeText(c, fa ? "سرویس دسترسی‌پذیری VadLan را روشن کنید" : "Turn on the VadLan accessibility service",
+                          Toast.LENGTH_LONG).show();
+                  try {
+                      c.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                  } catch (Throwable e) { }
+              }
+
+              static String appLabel(Context c, String pkg) {
+                  try {
+                      PackageManager pm = c.getPackageManager();
+                      return pm.getApplicationInfo(pkg, 0).loadLabel(pm).toString();
+                  } catch (Throwable e) {
+                      return pkg;
+                  }
+              }
+
+              // runs the action. It never falls back to opening the app: when the action cannot run, false is returned
+              static boolean run(Context c, Act x) {
+                  try {
+                      if ("sc".equals(x.type)) {                 // app shortcut
+                          LauncherApps la = (LauncherApps) c.getSystemService(Context.LAUNCHER_APPS_SERVICE);
+                          la.startShortcut(x.pkg, x.id, null, null, Process.myUserHandle());
+                          return true;
+                      }
+                      if ("cmp".equals(x.type)) {                // an app screen (activity)
+                          c.startActivity(new Intent().setClassName(x.pkg, x.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                          return true;
+                      }
+                      if ("rcv".equals(x.type)) {                // a broadcast receiver of the app: runs in the background
+                          c.sendBroadcast(new Intent().setClassName(x.pkg, x.id));
+                          return true;
+                      }
+                      if ("svc".equals(x.type)) {                // a service of the app: runs in the background
+                          Intent si = new Intent().setClassName(x.pkg, x.id);
+                          try {
+                              c.startService(si);
+                          } catch (IllegalStateException e) {
+                              c.startForegroundService(si);
+                          }
+                          return true;
+                      }
+                      if ("tile".equals(x.type)) {               // a Quick Settings tile, tapped by the accessibility service
+                          if (!TileClickService.ready()) { needA11y(c); return false; }
+                          return TileClickService.click(x.id);
+                      }
+                      if ("macro".equals(x.type)) {              // taps recorded inside the app, played back one by one
+                          if (!TileClickService.ready()) { needA11y(c); return false; }
+                          return TileClickService.replay(x.pkg, x.id);
+                      }
+                      if ("app".equals(x.type)) {                // open the app itself (chosen on purpose)
+                          Intent i = c.getPackageManager().getLaunchIntentForPackage(x.pkg);
+                          if (i == null) return false;
+                          i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                          if ("popup".equals(x.id)) {
+                              // popup: a window of the size saved from "Run apps" (needs free-form windows on the phone)
+                              android.app.ActivityOptions o = android.app.ActivityOptions.makeBasic();
+                              try {
+                                  String[] q = c.getSharedPreferences("l", 0).getString("runRect", "").split(",");
+                                  if (q.length == 4) o.setLaunchBounds(new android.graphics.Rect(
+                                          Integer.parseInt(q[0]), Integer.parseInt(q[1]), Integer.parseInt(q[2]), Integer.parseInt(q[3])));
+                              } catch (Throwable e) { }
+                              c.startActivity(i, o.toBundle());
+                          } else {
+                              c.startActivity(i);
+                          }
+                          return true;
+                      }
+                  } catch (Throwable e) { }
+                  return false;
+              }
+
+              // true when this "action" is just the main screen of the app, which only opens the app
+              static boolean opensAppOnly(Context c, Act x) {
+                  return "cmp".equals(x.type) && x.id.equals(mainScreen(c, x.pkg));
+              }
+
+              // the main screen of the app (the one the app icon opens)
+              static String mainScreen(Context c, String pkg) {
+                  try {
+                      Intent i = c.getPackageManager().getLaunchIntentForPackage(pkg);
+                      return i == null || i.getComponent() == null ? null : i.getComponent().getClassName();
+                  } catch (Throwable e) {
+                      return null;
+                  }
+              }
+
+              // the parts of an app that other apps may start: {type, class name, shown name}
+              static List<String[]> components(Context c, String pkg) {
+                  List<String[]> out = new ArrayList<>();
+                  try {
+                      android.content.pm.PackageInfo pi = c.getPackageManager().getPackageInfo(pkg,
+                              PackageManager.GET_ACTIVITIES | PackageManager.GET_RECEIVERS | PackageManager.GET_SERVICES);
+                      String main = mainScreen(c, pkg);
+                      if (pi.activities != null) for (android.content.pm.ActivityInfo a : pi.activities)
+                          if (a.exported && a.enabled && !a.name.equals(main))
+                              out.add(new String[]{"cmp", a.name, "🖥 " + a.name.substring(a.name.lastIndexOf('.') + 1)});
+                      if (pi.receivers != null) for (android.content.pm.ActivityInfo a : pi.receivers)
+                          if (a.exported && a.enabled && a.permission == null)
+                              out.add(new String[]{"rcv", a.name, "📡 " + a.name.substring(a.name.lastIndexOf('.') + 1)});
+                      if (pi.services != null) for (android.content.pm.ServiceInfo s : pi.services)
+                          if (s.exported && s.enabled && s.permission == null)
+                              out.add(new String[]{"svc", s.name, "⚙ " + s.name.substring(s.name.lastIndexOf('.') + 1)});
+                  } catch (Throwable e) { }
+                  // the app's own parts first, then the ones that come from libraries
+                  final String pre = pkg;
+                  java.util.Collections.sort(out, (x, y) -> {
+                      boolean ox = x[1].startsWith(pre), oy = y[1].startsWith(pre);
+                      return ox != oy ? (ox ? -1 : 1) : x[2].compareToIgnoreCase(y[2]);
+                  });
+                  return out;
+              }
+
+              // the shortcuts an app offers (needs this launcher to be the default home app)
+              static List<ShortcutInfo> shortcuts(Context c, String pkg) {
+                  List<ShortcutInfo> out = new ArrayList<>();
+                  try {
+                      LauncherApps la = (LauncherApps) c.getSystemService(Context.LAUNCHER_APPS_SERVICE);
+                      LauncherApps.ShortcutQuery q = new LauncherApps.ShortcutQuery();
+                      q.setPackage(pkg);
+                      q.setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC
+                              | LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+                              | LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED);
+                      List<ShortcutInfo> l = la.getShortcuts(q, Process.myUserHandle());
+                      if (l != null) for (ShortcutInfo s : l) if (s.isEnabled()) out.add(s);
+                  } catch (Throwable e) { }
+                  return out;
+              }
+
+              static boolean hasUsage(Context c) {
+                  try {
+                      AppOpsManager ao = (AppOpsManager) c.getSystemService(Context.APP_OPS_SERVICE);
+                      return ao.checkOpNoThrow("android:get_usage_stats", Process.myUid(), c.getPackageName())
+                              == AppOpsManager.MODE_ALLOWED;
+                  } catch (Throwable e) {
+                      return false;
+                  }
+              }
+
+              // the last screen of the app that came to the front since the given time (null = unknown)
+              static String lastScreen(Context c, String pkg, long since) {
+                  try {
+                      UsageStatsManager um = (UsageStatsManager) c.getSystemService(Context.USAGE_STATS_SERVICE);
+                      UsageEvents ev = um.queryEvents(Math.max(0, since - 2000), System.currentTimeMillis() + 2000);
+                      UsageEvents.Event e = new UsageEvents.Event();
+                      String last = null;
+                      while (ev.hasNextEvent()) {
+                          ev.getNextEvent(e);
+                          // 1 = the screen came to the front
+                          if (e.getEventType() == 1 && pkg.equals(e.getPackageName()) && e.getClassName() != null)
+                              last = e.getClassName();
+                      }
+                      return last;
+                  } catch (Throwable e) {
+                      return null;
+                  }
+              }
+          }
+          EOF
+
           cat > app/src/main/java/com/mylauncher/MockBubbleService.java <<'EOF'
           package com.mylauncher;
 
+          import android.animation.Animator;
+          import android.animation.AnimatorListenerAdapter;
+          import android.animation.ValueAnimator;
           import android.app.Notification;
           import android.app.NotificationChannel;
           import android.app.NotificationManager;
@@ -447,18 +1085,38 @@ jobs:
           import android.content.Intent;
           import android.content.SharedPreferences;
           import android.content.pm.ServiceInfo;
+          import android.graphics.Bitmap;
           import android.graphics.Canvas;
           import android.graphics.Paint;
+          import android.graphics.Path;
           import android.graphics.PixelFormat;
-          import android.graphics.SweepGradient;
+          import android.graphics.RadialGradient;
+          import android.graphics.RectF;
+          import android.graphics.Shader;
+          import android.graphics.drawable.Drawable;
+          import android.graphics.drawable.GradientDrawable;
           import android.os.Build;
           import android.os.Handler;
           import android.os.IBinder;
           import android.os.Looper;
+          import android.os.SystemClock;
+          import android.text.TextUtils;
           import android.view.Gravity;
           import android.view.MotionEvent;
           import android.view.View;
+          import android.view.ViewPropertyAnimator;
+          import android.view.ViewTreeObserver;
           import android.view.WindowManager;
+          import android.view.animation.DecelerateInterpolator;
+          import android.view.animation.OvershootInterpolator;
+          import android.widget.FrameLayout;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import java.util.List;
+          import java.util.concurrent.ConcurrentHashMap;
 
           public class MockBubbleService extends Service {
               static MockBubbleService inst;
@@ -473,25 +1131,36 @@ jobs:
               private WindowManager.LayoutParams params;
               private Handler handler = new Handler(Looper.getMainLooper());
               private SharedPreferences sp;
+              private boolean openState = false;          // true while the action list is open: the black ellipse shows under the bubble
+              private ValueAnimator dropAnim, backAnim;
+              private View dropView;
+              private int dropTargetX = 0;
+              private FrameLayout listBox;           // the visible box of the list, inside the transparent list window
+              private int listX, listY, listW, listH;   // final place and size of the list box
+              private boolean deferBlur = false;
+              private boolean listFull = false;      // true while the window is wide (opening effects that overshoot)
+              private ValueAnimator openAnim;
 
               private Runnable collapseRunnable = new Runnable() {
                   @Override
                   public void run() {
+                      if (listRoot != null) return; // the action list is open: the bubble stays out
+                      cancelBack();
                       if (bubbleView != null && params != null) {
                           int sw = getResources().getDisplayMetrics().widthPixels;
                           boolean right = sp.getInt("mock_px", 70) > 50;
                           int hide = Math.max(30, Math.min(70, sp.getInt("mock_hide", 68)));
                           int visible = Math.max(1, params.width * (100 - hide) / 100);
                           params.x = right ? sw - visible : -(params.width - visible);
-                          bubbleView.setAlpha(sp.getInt("mock_alpha", 90) / 100f * 0.55f);
+                          bubbleView.setAlpha(bubbleAlpha());
                           try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
                       }
                   }
               };
 
-              // how long the bubble waits before it folds into the side (50 ms to 2 s)
+              // how long the bubble waits before it folds into the side (2 ms to 2 s)
               private int collapseDelay() {
-                  return Math.max(50, Math.min(2000, sp.getInt("mock_speed", 2000)));
+                  return Math.max(2, Math.min(2000, sp.getInt("mock_speed", 2000)));
               }
 
               @Override
@@ -510,11 +1179,11 @@ jobs:
               private void ensureForeground() {
                   try {
                       NotificationManager nm = getSystemService(NotificationManager.class);
-                      nm.createNotificationChannel(new NotificationChannel("m", "VadLan Mock",
+                      nm.createNotificationChannel(new NotificationChannel("m", "تنظیمات حباب شناور",
                               NotificationManager.IMPORTANCE_MIN));
                       Notification n = new Notification.Builder(this, "m")
                               .setSmallIcon(R.drawable.ic_tile)
-                              .setContentTitle("VadLan Mock")
+                              .setContentTitle("تنظیمات حباب شناور")
                               .setOngoing(true)
                               .build();
                       if (Build.VERSION.SDK_INT >= 34) {
@@ -530,7 +1199,14 @@ jobs:
                   ensureForeground();
                   if (bubbleView == null) createBubble();
                   else updateParams();
+                  prefetchIcons();
                   return START_STICKY;
+              }
+
+              // Single source of truth for the floating bubble opacity.
+              // Every bubble render path uses the same configured value.
+              private float bubbleAlpha() {
+                  return Math.max(0.20f, Math.min(1.0f, sp.getInt("mock_alpha", 90) / 100f));
               }
 
               private void applyPosition() {
@@ -553,7 +1229,7 @@ jobs:
                   params.width = size;
                   params.height = size;
                   applyPosition();
-                  bubbleView.setAlpha(sp.getInt("mock_alpha", 90) / 100f);
+                  bubbleView.setAlpha(bubbleAlpha());
                   applyVisibility();
                   try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
                   handler.removeCallbacks(collapseRunnable);
@@ -567,6 +1243,659 @@ jobs:
                   startActivity(i);
               }
 
+              // ---------- bubble tap: launcher and / or the vertical list of app actions ----------
+              private FrameLayout listRoot;      // the list window (null = closed)
+              private LinearLayout listCard;
+              private WindowManager.LayoutParams listParams;
+              private long lastOutside = 0, downAt = 0;
+              private boolean fa() { return sp.getString("lang", "fa").equals("fa"); }
+              private String tr(String f, String e) { return fa() ? f : e; }
+
+              // true when a tap on the bubble will open the action list with the Drop effect:
+              // the drop itself brings the bubble out of the screen edge, so the bubble must not open a second time on touch-down
+              private boolean dropWillRun() {
+                  if (listRoot != null || dropView != null) return false;
+                  if (sp.getInt("bub_fx", 0) != 6) return false;
+                  if (!sp.getBoolean("bub_act_on", false)) return false;
+                  return BubbleActs.pkgs(BubbleActs.load(sp)).size() > 0;
+              }
+
+              // runs "go" only after the first frame of the view's window was really drawn (plus two calm frames),
+              // so an opening effect never starts on the heavy first frame (window creation + layer building)
+              private void whenDrawn(final View v, final Runnable go) {
+                  final boolean[] ran = {false};
+                  final Runnable once = () -> {
+                      if (ran[0]) return;
+                      ran[0] = true;
+                      go.run();
+                  };
+                  handler.postDelayed(once, 400);   // safety: the effect always starts
+                  try {
+                      final ViewTreeObserver vto = v.getViewTreeObserver();
+                      vto.addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+                          @Override
+                          public boolean onPreDraw() {
+                              ViewTreeObserver o = v.getViewTreeObserver();
+                              if (o.isAlive()) o.removeOnPreDrawListener(this);
+                              v.postOnAnimation(() -> v.postOnAnimation(() -> {
+                                  handler.removeCallbacks(once);
+                                  once.run();
+                              }));
+                              return true;
+                          }
+                      });
+                      v.invalidate();
+                  } catch (Throwable e) {
+                      handler.removeCallbacks(once);
+                      once.run();
+                  }
+              }
+
+              // app icons of the list: decoded once (also in the background), then every opening only copies them
+              private static final ConcurrentHashMap<String, Drawable.ConstantState> ICONS = new ConcurrentHashMap<>();
+
+              private Drawable iconFor(String pkg) {
+                  if (pkg == null) return null;
+                  try {
+                      Drawable.ConstantState cs = ICONS.get(pkg);
+                      if (cs != null) return cs.newDrawable(getResources());
+                      Drawable d = getPackageManager().getApplicationIcon(pkg);
+                      Drawable.ConstantState c2 = d.getConstantState();
+                      if (c2 != null) {
+                          ICONS.put(pkg, c2);
+                          return c2.newDrawable(getResources());
+                      }
+                      return d;
+                  } catch (Throwable e) { return null; }
+              }
+
+              private void prefetchIcons() {
+                  new Thread(() -> {
+                      try {
+                          for (String p : BubbleActs.pkgs(BubbleActs.load(sp))) {
+                              if (p == null || ICONS.containsKey(p)) continue;
+                              try {
+                                  Drawable d = getPackageManager().getApplicationIcon(p);
+                                  Drawable.ConstantState cs = d.getConstantState();
+                                  if (cs != null) ICONS.put(p, cs);
+                              } catch (Throwable e) { }
+                          }
+                      } catch (Throwable e) { }
+                  }).start();
+              }
+
+              private void onBubbleTap() {
+                  if (listRoot != null) { closeList(); return; }
+                  // this very touch just closed the list (touch outside the list = on the bubble): do not open it again
+                  if (Math.abs(downAt - lastOutside) < 250) return;
+                  boolean lau = sp.getBoolean("bub_launcher", true);
+                  boolean act = sp.getBoolean("bub_act_on", false);
+                  boolean has = BubbleActs.pkgs(BubbleActs.load(sp)).size() > 0;
+                  if (act && has) openList(lau);
+                  else if (lau) openLauncher(false);
+              }
+
+              private boolean listWithLauncher = false;
+
+              private void openList(boolean withLauncher) {
+                  listWithLauncher = withLauncher;
+                  handler.removeCallbacks(collapseRunnable);
+                  cancelBack();
+                  endDrop(false);
+                  bubbleView.setAlpha(bubbleAlpha());
+
+                  listRoot = new FrameLayout(this) {
+                      @Override
+                      public boolean dispatchTouchEvent(MotionEvent ev) {
+                          if (ev.getAction() == MotionEvent.ACTION_OUTSIDE) {
+                              lastOutside = SystemClock.uptimeMillis();
+                              closeList();
+                              return true;
+                          }
+                          return super.dispatchTouchEvent(ev);
+                      }
+                  };
+                  listRoot.setLayoutDirection(fa() ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+                  final boolean sep = sp.getBoolean("bub_sep", false);
+                  final boolean glass = sp.getBoolean("bub_lglass", false);
+                  listRoot.setBackgroundColor(0);
+                  listBox = new FrameLayout(this);
+                  if (!sep) listBox.setBackground(boxDrawable(sp.getInt("bub_lcol", 0xF2202024), glass, dpToPx(16)));   // separate boxes: every row has its own background
+                  ScrollView sv = new ScrollView(this);
+                  sv.setVerticalScrollBarEnabled(false);
+                  listCard = new LinearLayout(this);
+                  listCard.setOrientation(LinearLayout.VERTICAL);
+                  int cpad = sep ? 0 : dpToPx(6);
+                  listCard.setPadding(cpad, cpad, cpad, cpad);
+                  sv.addView(listCard);
+                  listBox.addView(sv, new FrameLayout.LayoutParams(-1, -1));
+                  listRoot.addView(listBox, new FrameLayout.LayoutParams(-1, -1));
+
+                  listParams = new WindowManager.LayoutParams(
+                          -2, -2, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                          WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                  | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                                  | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                          PixelFormat.TRANSLUCENT);
+                  listParams.gravity = Gravity.TOP | Gravity.LEFT;
+                  if (glass && !sep && Build.VERSION.SDK_INT >= 31) {
+                      try {
+                          listParams.flags |= WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+                          listParams.setBlurBehindRadius(dpToPx(24));
+                      } catch (Throwable e) { }
+                  }
+                  fillList();
+                  final int fxo = sp.getInt("bub_fx", 0);
+                  if (fxo != 0) {
+                      listBox.setAlpha(0.01f);   // practically invisible but really drawn: the layer is built before the motion starts
+                      listBox.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                  }
+                  layoutList(true);
+                  if (fxo == 0) return;
+                  // The bubble itself is animated only by the Drop effect.
+                  if (fxo == 6) prepareDrop();   // its window is created now, still empty, so the motion later costs nothing
+                  final FrameLayout rr = listRoot;
+                  // the heavy work (windows, layer) happens first; the effect starts when the list is already stable on screen
+                  whenDrawn(rr, () -> {
+                      if (listRoot != rr) return;
+                      playOpen();
+                      if (fxo == 6) beginDrop();
+                  });
+              }
+
+              // ---------- the drop effect: the bubble drips out of the screen edge, stretches, and lands above the list ----------
+              // creates the (still empty) drop window: the bubble art is drawn once into a bitmap, nothing is shown yet
+              private void prepareDrop() {
+                  if (bubbleView == null || params == null) return;
+                  final int sw = getResources().getDisplayMetrics().widthPixels;
+                  final int sh = getResources().getDisplayMetrics().heightPixels;
+                  final boolean right = sp.getInt("mock_px", 70) > 50;
+                  final int S = params.width;
+                  final float r = S * 0.36f;
+                  final DropView dv = new DropView(this);
+                  dv.r = r;
+                  dv.cy = params.y + S * 0.44f;
+                  dv.startCx = params.x + S / 2f;   // exactly where the folded bubble sits now: nothing jumps when the drop takes over
+                  dv.ax = right ? sw + r * 0.6f : -r * 0.6f;
+                  dv.endCx = dropTargetX + S / 2f;
+                  dv.setAlpha(bubbleAlpha());       // the same opacity value as the bubble itself
+                  dv.prepare();
+                  WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                          sw, sh, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                          WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                                  | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                          PixelFormat.TRANSLUCENT);
+                  lp.gravity = Gravity.TOP | Gravity.LEFT;
+                  openState = true;
+                  bubbleView.invalidate();
+                  try {
+                      wm.addView(dv, lp);
+                  } catch (Exception e) {
+                      // no overlay: the bubble simply appears above the list
+                      params.x = dropTargetX;
+                      try { wm.updateViewLayout(bubbleView, params); } catch (Exception e2) {}
+                      return;
+                  }
+                  dropView = dv;
+              }
+
+              // the drop starts: the drop layer shows the bubble and the real bubble steps aside in the same frame
+              private void beginDrop() {
+                  if (!(dropView instanceof DropView) || bubbleView == null) return;
+                  final DropView dv = (DropView) dropView;
+                  dv.t = 0f;
+                  dv.live = true;
+                  dv.invalidate();
+                  bubbleView.setVisibility(View.INVISIBLE);
+                  ValueAnimator va = ValueAnimator.ofFloat(0f, 1f);
+                  va.setDuration(dropMs());
+                  va.addUpdateListener(a -> {
+                      dv.t = (Float) a.getAnimatedValue();
+                      dv.invalidate();
+                  });
+                  va.addListener(new AnimatorListenerAdapter() {
+                      @Override
+                      public void onAnimationEnd(Animator an) { endDrop(true); }
+                  });
+                  dropAnim = va;
+                  va.start();
+              }
+
+              // speed of the drop effect (10 ms to 2 s)
+              private int dropMs() {
+                  return Math.max(10, Math.min(2000, sp.getInt("bub_dropms", 750)));
+              }
+
+              // the drop layer that is just leaving (removed a moment after the real bubble is back)
+              private View dropLeaving;
+
+              // finishes (land = true: the bubble stays where the drop lands) or cancels the drop effect
+              private void endDrop(boolean land) {
+                  ValueAnimator a = dropAnim;
+                  dropAnim = null;
+                  if (a != null) { a.removeAllListeners(); a.cancel(); }
+                  if (dropView != null) {
+                      final View dvv = dropView;
+                      dropView = null;
+                      if (bubbleView != null) {
+                          if (land && params != null) {
+                              params.x = dropTargetX;
+                              try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
+                          }
+                          applyVisibility();
+                      }
+                      if (land && bubbleView != null) {
+                          // the real bubble is already back and looks exactly the same: the drop layer leaves 3 frames later,
+                          // so there is never an empty frame and no change of opacity
+                          dropLeaving = dvv;
+                          handler.postDelayed(() -> {
+                              if (dropLeaving == dvv) dropLeaving = null;
+                              try { wm.removeView(dvv); } catch (Exception e) {}
+                          }, 50);
+                      } else {
+                          try { wm.removeView(dvv); } catch (Exception e) {}
+                      }
+                  }
+              }
+
+              private void cancelBack() {
+                  ValueAnimator a = backAnim;
+                  backAnim = null;
+                  if (a != null) { a.removeAllListeners(); a.cancel(); }
+              }
+
+              // the bubble folds straight into the side of the screen (no stop at the open side first)
+              private void collapseNow() {
+                  if (params == null || bubbleView == null) return;
+                  cancelBack();
+                  handler.removeCallbacks(collapseRunnable);
+                  int sw = getResources().getDisplayMetrics().widthPixels;
+                  boolean right = sp.getInt("mock_px", 70) > 50;
+                  int hide = Math.max(30, Math.min(70, sp.getInt("mock_hide", 68)));
+                  int visible = Math.max(1, params.width * (100 - hide) / 100);
+                  final int fromX = params.x;
+                  final int toX = right ? sw - visible : -(params.width - visible);
+                  final float a0 = bubbleAlpha();
+                  final float a1 = a0;
+                  ValueAnimator va = ValueAnimator.ofFloat(0f, 1f);
+                  va.setDuration(220);
+                  va.setInterpolator(new DecelerateInterpolator());
+                  va.addUpdateListener(a -> {
+                      if (params == null || bubbleView == null) return;
+                      float f = (Float) a.getAnimatedValue();
+                      params.x = fromX + (int) ((toX - fromX) * f);
+                      bubbleView.setAlpha(a0 + (a1 - a0) * f);
+                      try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
+                  });
+                  va.addListener(new AnimatorListenerAdapter() {
+                      @Override
+                      public void onAnimationEnd(Animator an) { if (backAnim == an) backAnim = null; }
+                  });
+                  backAnim = va;
+                  va.start();
+              }
+
+              // the bubble goes back to its place at the side of the screen (round, without the ellipse)
+              private void returnToSide() {
+                  if (params == null || bubbleView == null) return;
+                  cancelBack();
+                  final int fromX = params.x;
+                  applyPosition();
+                  final int toX = params.x;
+                  params.x = fromX;
+                  ValueAnimator va = ValueAnimator.ofInt(fromX, toX);
+                  va.setDuration(220);
+                  va.addUpdateListener(a -> {
+                      if (params == null || bubbleView == null) return;
+                      params.x = (Integer) a.getAnimatedValue();
+                      try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
+                  });
+                  backAnim = va;
+                  va.start();
+              }
+
+              // opening effect of the action list (0 none, 1 fade, 2 slide from the side, 3 grow from the bubble, 4 bounce, 5 slide from the top, 6 drop)
+              private void playOpen() {
+                  final FrameLayout r = listRoot;
+                  final FrameLayout b = listBox;
+                  final int fx = sp.getInt("bub_fx", 0);
+                  if (r == null || b == null || fx == 0) return;
+                  final long ms = Math.max(100, Math.min(1500, sp.getInt("bub_fxms", 300)));
+                  final boolean right = sp.getInt("mock_px", 70) > 50;
+                  b.setLayerType(View.LAYER_TYPE_HARDWARE, null);   // one stable layer: no colour flip when the effect ends
+                  {
+                      if (listRoot != r || listBox != b) return;
+                      int w = Math.max(1, listW), h = Math.max(1, listH);
+                      if (fx == 6) { playDrop(r, b, right); return; }
+                      ViewPropertyAnimator an = b.animate().setDuration(ms);
+                      if (fx == 2) {
+                          b.setTranslationX((right ? 1 : -1) * (w + dpToPx(16)));
+                          b.setAlpha(1f);
+                          an.translationX(0).setInterpolator(new DecelerateInterpolator(2f));
+                      } else if (fx == 3) {
+                          b.setPivotX(right ? w : 0);
+                          b.setPivotY(0);
+                          b.setScaleX(0.1f);
+                          b.setScaleY(0.1f);
+                          an.scaleX(1f).scaleY(1f).alpha(1f).setInterpolator(new DecelerateInterpolator());
+                      } else if (fx == 4) {
+                          b.setPivotX(right ? w : 0);
+                          b.setPivotY(0);
+                          b.setScaleX(0.5f);
+                          b.setScaleY(0.5f);
+                          an.scaleX(1f).scaleY(1f).alpha(1f).setInterpolator(new OvershootInterpolator(1.05f));
+                          an.withEndAction(() -> endFull(r));   // the wide window lets the bounce grow past the final size without being cut
+                      } else if (fx == 5) {
+                          b.setTranslationY(-(h + dpToPx(24)));
+                          b.setAlpha(1f);
+                          an.translationY(0).setInterpolator(new DecelerateInterpolator(2f));
+                      } else {
+                          an.alpha(1f);
+                      }
+                      an.start();
+                  }
+              }
+
+              // the list drips out of the screen edge like a drop of liquid, stretches, and lands (same motion as the bubble)
+              private void playDrop(final FrameLayout r, final FrameLayout b, final boolean right) {
+                  final int sw = getResources().getDisplayMetrics().widthPixels;
+                  final float w = Math.max(1, listW);
+                  final float tx0 = right ? (sw - listX - w * 0.15f) : -(listX + w * 0.85f);
+                  final DecelerateInterpolator ease = new DecelerateInterpolator(1.7f);
+                  b.setPivotX(right ? w : 0);
+                  b.setPivotY(0);
+                  b.setTranslationX(tx0);
+                  b.setTranslationY(0f);
+                  b.setScaleX(1f);
+                  b.setScaleY(1f);
+                  b.setAlpha(1f);
+                  ValueAnimator va = ValueAnimator.ofFloat(0f, 1f);
+                  va.setDuration(dropMs());
+                  va.setInterpolator(ease);
+                  va.addUpdateListener(a -> {
+                      float t = (Float) a.getAnimatedValue();
+                      // One continuous approach: no overshoot/reversal, with a small liquid stretch.
+                      float stretch = (float) Math.sin(Math.PI * t) * 0.16f;
+                      b.setTranslationX(tx0 * (1f - t));
+                      b.setScaleX(1f + stretch);
+                      b.setScaleY(1f - stretch * 0.35f);
+                  });
+                  va.addListener(new AnimatorListenerAdapter() {
+                      @Override
+                      public void onAnimationEnd(Animator an) { endFull(r); }
+                  });
+                  openAnim = va;
+                  va.start();
+              }
+
+              // the opening effect is over: the box is exactly in place and the window shrinks back to the size of the list
+              private void endFull(FrameLayout r) {
+                  if (listRoot != r || listBox == null) return;
+                  openAnim = null;
+                  listBox.setTranslationX(0f);
+                  listBox.setScaleX(1f);
+                  listBox.setScaleY(1f);
+                  listBox.setAlpha(1f);
+                  if (!listFull) return;
+                  // shrink the window in one step; the blur (glass) is added two frames later so nothing jumps
+                  final FrameLayout bx = listBox;
+                  deferBlur = true;
+                  applyListWindow(false, true);
+                  bx.postOnAnimation(() -> bx.postOnAnimation(() -> {
+                      deferBlur = false;
+                      if (listBox != bx || listRoot != r || listFull) return;
+                      boolean blur = sp.getBoolean("bub_lglass", false) && !sp.getBoolean("bub_sep", false) && Build.VERSION.SDK_INT >= 31;
+                      if (!blur) return;
+                      try {
+                          listParams.flags |= WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+                          wm.updateViewLayout(listRoot, listParams);
+                      } catch (Exception e) { }
+                  }));
+              }
+
+              private void cancelOpenAnim(FrameLayout box) {
+                  ValueAnimator a = openAnim;
+                  openAnim = null;
+                  if (a != null) { a.removeAllListeners(); a.cancel(); }
+                  if (box != null) {
+                      box.animate().cancel();
+                      box.setTranslationX(0f);
+                      box.setTranslationY(0f);
+                      box.setScaleX(1f);
+                      box.setScaleY(1f);
+                      box.setAlpha(1f);
+                  }
+              }
+
+              // full = true: a window as wide as the screen (and a bit taller), untouchable, so that no part of an effect is cut at the window edge
+              private void applyListWindow(boolean full, boolean attached) {
+                  if (listRoot == null || listBox == null || listParams == null) return;
+                  listFull = full;
+                  FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(listW, listH);
+                  blp.gravity = Gravity.TOP | Gravity.LEFT;
+                  boolean blur = sp.getBoolean("bub_lglass", false) && !sp.getBoolean("bub_sep", false) && Build.VERSION.SDK_INT >= 31;
+                  if (full) {
+                      int sw = getResources().getDisplayMetrics().widthPixels;
+                      int sh = getResources().getDisplayMetrics().heightPixels;
+                      int extra = Math.min(listH * 35 / 100 + dpToPx(24), Math.max(0, sh - listY - listH));
+                      blp.leftMargin = listX;
+                      listParams.x = 0;
+                      listParams.width = sw;
+                      listParams.y = listY;
+                      listParams.height = listH + extra;
+                      listParams.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                      listParams.flags &= ~WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+                  } else {
+                      listParams.x = listX;
+                      listParams.width = listW;
+                      listParams.y = listY;
+                      listParams.height = listH;
+                      listParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                      if (blur && !deferBlur) listParams.flags |= WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+                  }
+                  listBox.setLayoutParams(blp);
+                  if (attached) {
+                      try { wm.updateViewLayout(listRoot, listParams); } catch (Exception e) {}
+                  }
+              }
+
+              private void closeList() {
+                  final FrameLayout old = listRoot;
+                  final FrameLayout oldBox = listBox;
+                  listRoot = null;
+                  listCard = null;
+                  listBox = null;
+                  cancelOpenAnim(oldBox);
+                  endDrop(false);
+                  openState = false;
+                  if (bubbleView != null) {
+                      bubbleView.invalidate();
+                      if (old != null) returnToSide();
+                  }
+                  if (old != null) {
+                      final int fx = sp.getInt("bub_fx", 0);
+                      if (fx == 0) {
+                          try { wm.removeView(old); } catch (Exception e) {}
+                      } else {
+                          // a short fade-out, then the window goes
+                          old.animate().alpha(0f).setDuration(Math.max(80, Math.min(1500, sp.getInt("bub_fxms", 300)) / 2))
+                                  .withEndAction(() -> { try { wm.removeView(old); } catch (Exception e) {} }).start();
+                      }
+                  }
+                  handler.removeCallbacks(collapseRunnable);
+                  handler.postDelayed(collapseRunnable, collapseDelay());
+              }
+
+              // measures the list and puts it below the bubble, on the same side of the screen
+              private void layoutList(boolean add) {
+                  if (listRoot == null || params == null) return;
+                  int sw = getResources().getDisplayMetrics().widthPixels;
+                  int sh = getResources().getDisplayMetrics().heightPixels;
+                  int w = Math.min(dpToPx(Math.max(15, Math.min(200, sp.getInt("bub_lw", 190)))), sw - dpToPx(16));
+                  listCard.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                          View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                  final boolean sepL = sp.getBoolean("bub_sep", false);
+                  // separate boxes: the height lever sizes every box; otherwise it limits the height of the whole list
+                  int maxH = sepL ? sh : sh * Math.max(20, Math.min(100, sp.getInt("bub_lh", 100))) / 100;
+                  int h = Math.min(listCard.getMeasuredHeight(), maxH);
+                  // "number of boxes": only that many rows are visible, the rest wait below (or above) and scroll in
+                  int cnt = Math.max(2, Math.min(20, sp.getInt("bub_cnt", 20)));
+                  if (listCard.getChildCount() > cnt) {
+                      int hc = listCard.getPaddingTop() + listCard.getPaddingBottom();
+                      for (int i = 0; i < cnt; i++) {
+                          View cv = listCard.getChildAt(i);
+                          LinearLayout.LayoutParams clp = (LinearLayout.LayoutParams) cv.getLayoutParams();
+                          hc += cv.getMeasuredHeight() + clp.topMargin + clp.bottomMargin;
+                      }
+                      h = Math.min(h, hc);
+                  }
+                  int gap = dpToPx(1), edge = dpToPx(24);
+                  // the round shadow under the bubble almost touches the top of the list
+                  int y = params.y + (int) (params.height * 0.9f) + gap;
+                  int room = sh - y - edge;
+                  if (room < Math.min(h, dpToPx(160)) && params.y > room) {
+                      // not enough room below the bubble: open above it
+                      int top = params.y + (int) (params.height * 0.08f);
+                      room = top - gap - edge;
+                      h = Math.min(h, room);
+                      y = top - gap - h;
+                  } else {
+                      h = Math.min(h, room);
+                  }
+                  boolean right = sp.getInt("mock_px", 70) > 50;
+                  listParams.width = w;
+                  listParams.height = sepL ? Math.max(1, h) : Math.max(dpToPx(60), h);
+                  listParams.x = right ? sw - w - dpToPx(8) : dpToPx(8);
+                  dropTargetX = listParams.x + w / 2 - params.width / 2;   // centred above (or below) the list boxes
+                  listParams.y = Math.max(edge, y);
+                  listX = listParams.x;
+                  listY = listParams.y;
+                  listW = listParams.width;
+                  listH = listParams.height;
+                  int fxL = sp.getInt("bub_fx", 0);
+                  applyListWindow(add ? (fxL == 4 || fxL == 6) : listFull, false);
+                  try {
+                      if (add) wm.addView(listRoot, listParams);
+                      else wm.updateViewLayout(listRoot, listParams);
+                  } catch (Exception e) {}
+              }
+
+              private GradientDrawable boxDrawable(int col, boolean glass, int rPx) {
+                  GradientDrawable g = new GradientDrawable();
+                  g.setCornerRadius(rPx);
+                  g.setColor(col);
+                  g.setStroke(dpToPx(1), glass ? 0x66FFFFFF : 0x33FFFFFF);
+                  return g;
+              }
+
+              // gap between separate boxes: micrometers (negative = overlap)
+              private int gapPx() {
+                  float um = sp.getInt("bub_gap", 800);
+                  return (int) android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_MM, um / 1000f,
+                          getResources().getDisplayMetrics());
+              }
+
+              private TextView listText(String s, float sp14, int color) {
+                  TextView tv = new TextView(this);
+                  tv.setText(s);
+                  tv.setTextSize(sp14);
+                  tv.setTextColor(color);
+                  tv.setSingleLine(true);
+                  tv.setEllipsize(TextUtils.TruncateAt.END);
+                  return tv;
+              }
+
+              // one box of the list: optional dot, the app icon and / or the name
+              private void addListItem(String dot, int dotColor, String pkg, String text, Runnable click) {
+                  final boolean sep = sp.getBoolean("bub_sep", false);
+                  boolean showIco = sp.getBoolean("bub_ico", false) && pkg != null;
+                  boolean showNm = sp.getBoolean("bub_nm", true) || !showIco;   // the icon and the name are never both off
+                  int ts = Math.max(10, Math.min(28, sp.getInt("bub_lts", 15)));
+                  int isz = dpToPx(Math.max(5, Math.min(32, sp.getInt("bub_isz", 20))));
+                  LinearLayout row = new LinearLayout(this);
+                  row.setGravity(Gravity.CENTER_VERTICAL);
+                  if (showIco) row.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);   // the name sits to the right of its icon
+                  int content = Math.max(showNm ? (int) (dpToPx(ts) * 1.5f) : 0, showIco ? isz + dpToPx(6) : 0);
+                  int vp = Math.max(dpToPx(6), dpToPx(11) * ts / 15);
+                  row.setPadding(dpToPx(12), sep ? 0 : vp, dpToPx(12), sep ? 0 : vp);
+                  int boxH = 0;
+                  if (sep) {
+                      // one box per action: the height lever sizes all boxes together
+                      int lh = Math.max(20, Math.min(100, sp.getInt("bub_lh", 100)));
+                      boxH = Math.max(dpToPx(8) + dpToPx(52) * lh / 100, content);
+                      row.setBackground(boxDrawable(sp.getInt("bub_lcol", 0xF2202024), sp.getBoolean("bub_lglass", false), dpToPx(14)));
+                  }
+                  if (dot != null) {
+                      TextView d = listText(dot, 12, dotColor);
+                      LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-2, -2);
+                      dl.setMarginEnd(dpToPx(8));
+                      row.addView(d, dl);
+                  }
+                  if (showIco) {
+                      ImageView iv = new ImageView(this);
+                      iv.setImageDrawable(iconFor(pkg));
+                      iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                      LinearLayout.LayoutParams il = new LinearLayout.LayoutParams(isz, isz);
+                      if (showNm) il.setMarginEnd(dpToPx(8));
+                      row.addView(iv, il);
+                  }
+                  if (showNm) {
+                      TextView nameTv = listText(text, ts, 0xFFFFFFFF);
+                      if (showIco) nameTv.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
+                      row.addView(nameTv, new LinearLayout.LayoutParams(0, -2, 1));
+                  } else {
+                      row.setGravity(Gravity.CENTER);
+                  }
+                  row.setOnTouchListener((v, ev) -> {
+                      int a = ev.getAction();
+                      if (sep) {
+                          if (a == MotionEvent.ACTION_DOWN) v.setAlpha(0.65f);
+                          else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) v.setAlpha(1f);
+                      } else {
+                          if (a == MotionEvent.ACTION_DOWN) v.setBackgroundColor(0x33FFFFFF);
+                          else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) v.setBackgroundColor(0);
+                      }
+                      return false;
+                  });
+                  row.setOnClickListener(v -> click.run());
+                  LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, sep ? boxH : -2);
+                  if (sep && listCard.getChildCount() > 0) lp.topMargin = gapPx();
+                  listCard.addView(row, lp);
+              }
+
+              // one box for every saved action, named with the custom name
+              private void fillList() {
+                  if (listCard == null) return;
+                  listCard.removeAllViews();
+                  final BubbleActs.Act[] all = BubbleActs.load(sp);
+                  if (listWithLauncher) {
+                      addListItem(null, 0, getPackageName(), "🏠 " + tr("لانچر", "Launcher"), () -> {
+                          closeList();
+                          openLauncher(false);
+                      });
+                  }
+                  for (int i = 0; i < all.length; i++) {
+                      final BubbleActs.Act a = all[i];
+                      if (a == null) continue;
+                      final int slot = i;
+                      final boolean tile = "tile".equals(a.type);
+                      boolean on = tile && sp.getBoolean("bub_on_s" + i, false);
+                      addListItem(tile ? "●" : null, on ? 0xFF4CAF50 : 0x55FFFFFF, a.pkg, BubbleActs.title(this, a), () -> {
+                          BubbleActs.Act cur = BubbleActs.load(sp)[slot];
+                          if (cur != null) {
+                              if (BubbleActs.run(this, cur)) {
+                                  // a tile pressed again toggles back (connect / disconnect)
+                                  if ("tile".equals(cur.type))
+                                      sp.edit().putBoolean("bub_on_s" + slot, !sp.getBoolean("bub_on_s" + slot, false)).apply();
+                              } else if (!"tile".equals(cur.type) && !"macro".equals(cur.type)) {
+                                  Toast.makeText(this, tr("اجرای عملکرد ممکن نشد", "Could not run the action"), Toast.LENGTH_SHORT).show();
+                              }
+                          }
+                          closeList();
+                      });
+                  }
+              }
+
               private void createBubble() {
                   int size = dpToPx(sp.getInt("mock_size", 56));
                   params = new WindowManager.LayoutParams(
@@ -578,28 +1907,18 @@ jobs:
                   applyPosition();
 
                   bubbleView = new View(this) {
-                      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
                       @Override
                       protected void onDraw(Canvas canvas) {
-                          float cx = getWidth() / 2f, cy = getHeight() / 2f;
-                          float st = dpToPx(4);
-                          paint.setStyle(Paint.Style.STROKE);
-                          paint.setStrokeWidth(st);
-                          paint.setShader(new SweepGradient(cx, cy,
-                                  new int[]{0xFF3D7BF7, 0xFFA78BFA, 0xFFFF6B9D, 0xFFFF9F43, 0xFF3D7BF7}, null));
-                          canvas.drawCircle(cx, cy, cx - st, paint);
-                          paint.setShader(null);
-                          paint.setStrokeWidth(st / 3f);
-                          paint.setColor(0x66FFFFFF);
-                          canvas.drawCircle(cx, cy, cx - st * 2.2f, paint);
+                          float w = getWidth(), h = getHeight();
+                          BubbleArt.draw(canvas, w * 0.5f, h * 0.44f, w * 0.36f, true);
                       }
                   };
-                  bubbleView.setAlpha(sp.getInt("mock_alpha", 90) / 100f);
+                  bubbleView.setAlpha(bubbleAlpha());
 
                   bubbleView.setOnTouchListener(new View.OnTouchListener() {
                       int ix, iy;
                       float tx, ty;
-                      boolean moved, longFired;
+                      boolean moved, longFired, popped;
                       Runnable longRun = new Runnable() {
                           @Override
                           public void run() {
@@ -612,15 +1931,29 @@ jobs:
                           switch (ev.getAction()) {
                               case MotionEvent.ACTION_DOWN:
                                   handler.removeCallbacks(collapseRunnable);
-                                  bubbleView.setAlpha(sp.getInt("mock_alpha", 90) / 100f);
-                                  applyPosition();
-                                  try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
+                                  popped = true;
+                                  if (listRoot == null && SystemClock.uptimeMillis() - lastOutside < 250) {
+                                      // this very touch just closed the list: the bubble folds straight into the side
+                                      collapseNow();
+                                  } else {
+                                      bubbleView.setAlpha(bubbleAlpha());
+                                      cancelBack();
+                                      if (listRoot == null && dropView == null) {
+                                          if (dropWillRun()) {
+                                              popped = false;   // the drop opens the bubble: no second opening here
+                                          } else {
+                                              applyPosition();
+                                              try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
+                                          }
+                                      }
+                                  }
                                   ix = params.x;
                                   iy = params.y;
                                   tx = ev.getRawX();
                                   ty = ev.getRawY();
                                   moved = false;
                                   longFired = false;
+                                  downAt = SystemClock.uptimeMillis();
                                   handler.postDelayed(longRun, 600);
                                   return true;
                               case MotionEvent.ACTION_MOVE:
@@ -628,6 +1961,21 @@ jobs:
                                   if (!moved && (Math.abs(dx) > dpToPx(8) || Math.abs(dy) > dpToPx(8))) {
                                       moved = true;
                                       handler.removeCallbacks(longRun);
+                                      if (listRoot != null) { closeList(); cancelBack(); }
+                                      cancelBack();
+                                      bubbleView.setAlpha(bubbleAlpha());
+                                      if (!popped) {
+                                          // a drag started on the folded bubble: bring it out now and drag from there
+                                          popped = true;
+                                          applyPosition();
+                                          try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
+                                          ix = params.x;
+                                          iy = params.y;
+                                          tx = ev.getRawX();
+                                          ty = ev.getRawY();
+                                          dx = 0;
+                                          dy = 0;
+                                      }
                                   }
                                   if (moved) {
                                       params.x = ix + (int) dx;
@@ -647,9 +1995,9 @@ jobs:
                                       py = Math.max(0, Math.min(100, py));
                                       sp.edit().putInt("mock_px", px).putInt("mock_py", py).apply();
                                   } else if (!longFired && ev.getAction() == MotionEvent.ACTION_UP) {
-                                      openLauncher(false);
+                                      onBubbleTap();
                                   }
-                                  handler.postDelayed(collapseRunnable, collapseDelay());
+                                  if (listRoot == null && backAnim == null) handler.postDelayed(collapseRunnable, collapseDelay());
                                   return true;
                           }
                           return false;
@@ -672,6 +2020,16 @@ jobs:
                   super.onDestroy();
                   inst = null;
                   handler.removeCallbacksAndMessages(null);
+                  endDrop(false);
+                  if (dropLeaving != null && wm != null) {
+                      try { wm.removeView(dropLeaving); } catch (Exception e) {}
+                      dropLeaving = null;
+                  }
+                  cancelBack();
+                  if (listRoot != null && wm != null) {
+                      try { wm.removeView(listRoot); } catch (Exception e) {}
+                      listRoot = null;
+                  }
                   if (bubbleView != null && wm != null) {
                       try { wm.removeView(bubbleView); } catch (Exception e) {}
                   }
@@ -679,6 +2037,198 @@ jobs:
                   try { stopForeground(true); } catch (Exception e) {}
               }
           }
+
+          // ---------- the look of the bubble: a teal glass sphere, a gold ring and a 3D ornate "V" ----------
+          class BubbleArt {
+              static final int GOLD = 0xFFC4A054, MINT = 0xFFBFEADF, DEEP = 0xFF2F6B60;
+              private static Path fillPath, ornPath;
+
+              private static void build() {
+                  if (fillPath != null) return;
+                  Path g = new Path();
+                  // left arm (thin) with its serif
+                  g.moveTo(2, 1); g.lineTo(44, 1); g.lineTo(44, 4.5f); g.lineTo(37, 5.5f);
+                  g.lineTo(51, 86); g.lineTo(50, 90); g.lineTo(45, 84); g.lineTo(26, 6);
+                  g.lineTo(14, 5.5f); g.lineTo(2, 4.5f); g.close();
+                  // right arm (thick) with its serif
+                  g.moveTo(70, 1); g.lineTo(100, 1); g.lineTo(100, 4.5f); g.lineTo(93, 6);
+                  g.lineTo(55, 88); g.lineTo(51, 90); g.lineTo(49, 86); g.lineTo(76, 6);
+                  g.lineTo(70, 4.5f); g.close();
+                  fillPath = g;
+                  Path o = new Path();
+                  // the flowing ornament inside the left arm
+                  o.moveTo(31, 8); o.cubicTo(16, 18, 42, 30, 30, 44); o.cubicTo(22, 56, 46, 62, 41, 77);
+                  o.moveTo(38, 10); o.cubicTo(30, 30, 50, 40, 43, 58);
+                  o.addCircle(23, 16, 2.4f, Path.Direction.CW);
+                  o.addCircle(30, 31, 2f, Path.Direction.CW);
+                  o.addCircle(45, 67, 2.6f, Path.Direction.CW);
+                  o.addCircle(28, 22, 0.9f, Path.Direction.CW);
+                  o.addCircle(36, 60, 0.9f, Path.Direction.CW);
+                  ornPath = o;
+              }
+
+              private static void layer(Canvas c, Paint p, int color, float dx, float dy) {
+                  c.save();
+                  c.translate(dx, dy);
+                  p.setStyle(Paint.Style.FILL);
+                  p.setColor(color);
+                  c.drawPath(fillPath, p);
+                  p.setStyle(Paint.Style.STROKE);
+                  p.setStrokeWidth(1.7f);
+                  p.setStrokeCap(Paint.Cap.ROUND);
+                  c.drawPath(ornPath, p);
+                  c.restore();
+              }
+
+              // the letter V, with depth and a long soft shadow, in colours that match the sphere
+              static void drawV(Canvas c, Paint p, float cx, float cy, float width) {
+                  build();
+                  float s = width / 100f;
+                  c.save();
+                  c.translate(cx - 50 * s, cy - 45 * s);
+                  c.scale(s, s);
+                  for (int k = 16; k >= 7; k--) layer(c, p, 0x1A0B2A25, k * 0.55f, k * 0.55f);   // long soft shadow
+                  for (int k = 6; k >= 1; k--) layer(c, p, DEEP, k * 0.5f, k * 0.5f);            // the depth of the letter
+                  layer(c, p, MINT, 0, 0);                                                        // the front face
+                  p.setStyle(Paint.Style.STROKE);
+                  p.setStrokeWidth(0.6f);
+                  p.setColor(0x99FFFFFF);
+                  c.drawPath(fillPath, p);
+                  c.restore();
+                  p.setStrokeCap(Paint.Cap.BUTT);
+              }
+
+              // the dark ellipse under the open bubble (the same design as the gold one, but black)
+              static void drawBase(Canvas c, Paint p, float cx, float cy, float r) {
+                  float by = cy + r * 1.12f;
+                  c.save();
+                  c.translate(cx, by);
+                  c.scale(1f, 0.22f);
+                  p.setStyle(Paint.Style.FILL);
+                  p.setShader(new RadialGradient(0, 0, r * 0.95f, new int[]{0x66000000, 0x00000000}, null, Shader.TileMode.CLAMP));
+                  c.drawCircle(0, 0, r * 0.95f, p);
+                  p.setShader(null);
+                  c.restore();
+                  p.setStyle(Paint.Style.STROKE);
+                  p.setStrokeWidth(Math.max(1f, r * 0.05f));
+                  p.setColor(0xFF000000);
+                  c.drawOval(new RectF(cx - r * 0.62f, by - r * 0.11f, cx + r * 0.62f, by + r * 0.11f), p);
+              }
+
+              // draws the whole bubble around (cx, cy); base = true: the black ellipse under it (open state)
+              static void draw(Canvas c, float cx, float cy, float r, boolean base) {
+                  Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+                  float sw = Math.max(1f, r * 0.07f);
+                  if (base) drawBase(c, p, cx, cy, r);
+                  RectF ring = new RectF(cx - r * 1.22f, cy - r * 0.36f, cx + r * 1.22f, cy + r * 0.36f);
+                  // back half of the ring (behind the sphere)
+                  c.save();
+                  c.rotate(-12f, cx, cy);
+                  p.setStyle(Paint.Style.STROKE);
+                  p.setStrokeWidth(sw);
+                  p.setColor(GOLD);
+                  c.drawArc(ring, 180, 180, false, p);
+                  c.restore();
+                  // the sphere
+                  p.setStyle(Paint.Style.FILL);
+                  p.setShader(new RadialGradient(cx - r * 0.35f, cy - r * 0.4f, r * 1.6f,
+                          new int[]{0xFFC9EFE6, 0xFF6DB5A6, 0xFF2F6B60}, new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
+                  c.drawCircle(cx, cy, r, p);
+                  p.setShader(null);
+                  p.setStyle(Paint.Style.STROKE);
+                  p.setStrokeWidth(r * 0.05f);
+                  p.setColor(0xFFDCEBE8);
+                  c.drawCircle(cx, cy, r, p);
+                  // glass shine
+                  c.save();
+                  c.rotate(-25f, cx - r * 0.4f, cy - r * 0.53f);
+                  p.setStyle(Paint.Style.FILL);
+                  p.setColor(0x40FFFFFF);
+                  c.drawOval(new RectF(cx - r * 0.72f, cy - r * 0.78f, cx - r * 0.08f, cy - r * 0.28f), p);
+                  c.restore();
+                  p.setStyle(Paint.Style.STROKE);
+                  p.setStrokeWidth(Math.max(1f, r * 0.025f));
+                  p.setColor(0xCCF1E6C4);
+                  c.drawArc(new RectF(cx - r * 0.88f, cy - r * 0.88f, cx + r * 0.88f, cy + r * 0.88f), 195, 60, false, p);
+                  c.drawArc(new RectF(cx - r * 0.8f, cy - r * 0.8f, cx + r * 0.8f, cy + r * 0.8f), 40, 55, false, p);
+                  p.setStyle(Paint.Style.FILL);
+                  c.drawCircle(cx - r * 0.7f, cy - r * 0.3f, r * 0.04f, p);
+                  c.drawCircle(cx + r * 0.55f, cy + r * 0.35f, r * 0.04f, p);
+                  // the V
+                  drawV(c, p, cx, cy + r * 0.02f, r * 1.2f);
+                  // front half of the ring (in front of the sphere)
+                  c.save();
+                  c.rotate(-12f, cx, cy);
+                  p.setStyle(Paint.Style.STROKE);
+                  p.setStrokeWidth(sw);
+                  p.setColor(GOLD);
+                  c.drawArc(ring, 0, 180, false, p);
+                  c.restore();
+              }
+          }
+
+          // full screen, untouchable layer: the bubble drops out of the screen edge like a drop of liquid, stretches, and lands
+          // the bubble is drawn ONCE into a bitmap; every frame is only one cheap bitmap draw (no vector art, no allocations)
+          class DropView extends View {
+              float t = 0f;
+              float startCx, endCx, cy, r, ax;
+              boolean live = false;   // draws nothing until the drop starts
+              private final OvershootInterpolator ov = new OvershootInterpolator(1.6f);
+              private final Paint neck = new Paint(Paint.ANTI_ALIAS_FLAG);
+              private final Paint bmp = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+              private final Path q = new Path();
+              private Bitmap art;
+              private static final float K = 2f;   // the bitmap is twice as big: the stretch stays sharp
+
+              DropView(android.content.Context ctx) {
+                  super(ctx);
+                  neck.setStyle(Paint.Style.FILL);
+                  neck.setColor(0xFF4F9E90);
+              }
+
+              void prepare() {
+                  try {
+                      int s = (int) Math.ceil(r * 3.4f * K);
+                      Bitmap b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+                      Canvas bc = new Canvas(b);
+                      bc.scale(K, K);
+                      BubbleArt.draw(bc, s / (2f * K), s / (2f * K), r, true);
+                      art = b;
+                  } catch (Throwable e) { art = null; }
+              }
+
+              @Override
+              protected void onDraw(Canvas c) {
+                  if (!live) return;
+                  float pos = ov.getInterpolation(t);
+                  float cx = startCx + (endCx - startCx) * pos;
+                  float st = (float) Math.sin(Math.PI * t) * 0.85f + 0.1f * (float) Math.sin(3 * Math.PI * t) * t;
+                  float sx = 1f + st, sy = 1f / (1f + st * 0.55f);
+                  float n = Math.max(0f, 1f - t / 0.4f);   // the thin neck that holds the drop to the edge, until it snaps
+                  if (n > 0f) {
+                      float wb = r * 0.9f * n, wm = r * 0.22f * n, wa = r * 0.9f * n;
+                      float mx = (ax + cx) / 2f;
+                      q.reset();
+                      q.moveTo(ax, cy - wa);
+                      q.quadTo(mx, cy - wm, cx, cy - wb);
+                      q.lineTo(cx, cy + wb);
+                      q.quadTo(mx, cy + wm, ax, cy + wa);
+                      q.close();
+                      c.drawPath(q, neck);
+                  }
+                  c.save();
+                  c.translate(cx, cy);
+                  if (art != null) {
+                      c.scale(sx / K, sy / K);
+                      c.drawBitmap(art, -art.getWidth() / 2f, -art.getHeight() / 2f, bmp);
+                  } else {
+                      c.scale(sx, sy);
+                      BubbleArt.draw(c, 0, 0, r, true);
+                  }
+                  c.restore();
+              }
+          }
+
           EOF
 
           cat > app/src/main/java/com/mylauncher/MainActivity.java <<'EOF'
@@ -714,7 +2264,7 @@ jobs:
           public class MainActivity extends Activity {
               static final int HOME = 0, SETTINGS = 1, BG = 2, BEHAVIOR = 3, LANG = 4, PICKER = 5,
                       DOCK = 6, ICON = 8, MOCK = 9, FOLDER = 10, BACKUP = 11, RESTORE = 12,
-                      FONT = 13, FGRP = 14, FPICK = 15, DOCKBG = 16, HPAGE = 17, HFBG = 18, MBG = 19, TBG = 20, TBAR = 21, MBOX = 22, SBOX = 23;
+                      FONT = 13, FGRP = 14, FPICK = 15, DOCKBG = 16, HPAGE = 17, HFBG = 18, MBG = 19, TBG = 20, TBAR = 21, MBOX = 22, SBOX = 23, ACTS = 24, BUB = 25, BLBG = 26;
               static final int DLG = 0xFFEEEEEE;
               static final int REQ_IMG = 77, REQ_FIMG = 78, REQ_MIMG = 79, REQ_TIMG = 80;
 
@@ -1101,6 +2651,7 @@ jobs:
                   plusOpen = false;
                   folderSettings = false;
                   sel.clear();
+                  mockFromBubble = false;
                   checkMockIntent(in);
                   show();
               }
@@ -1112,7 +2663,6 @@ jobs:
                       container.getChildAt(container.getChildCount() - 1).requestApplyInsets();
                   }
               }
-
               // top / bottom space of the home page: the same numbers are used for the first build and for the real insets
               int[] homeInsets(WindowInsets ins) {
                   if (ins == null) ins = getWindow().getDecorView().getRootWindowInsets();
@@ -1131,10 +2681,26 @@ jobs:
                   return new int[]{top, bot};
               }
 
+              // true while the Mock settings were opened from the bubble (long press): Back then closes them completely
+              boolean mockFromBubble = false;
+
               private void checkMockIntent(Intent in) {
                   if (in != null && in.getBooleanExtra("open_mock_settings", false)) {
                       page = MOCK;
+                      mockFromBubble = true;
+                      in.removeExtra("open_mock_settings");
                   }
+                  if (in != null && in.getBooleanExtra("open_acts", false)) {
+                      page = ACTS;
+                      in.removeExtra("open_acts");
+                  }
+              }
+
+              void closeMockFromBubble() {
+                  mockFromBubble = false;
+                  page = HOME;
+                  moveTaskToBack(true);
+                  container.postDelayed(() -> show(), 400);
               }
 
               @Override
@@ -1155,6 +2721,7 @@ jobs:
               @Override
               protected void onStop() {
                   super.onStop();
+                  saveRunRect();
                   sp.edit().putBoolean("open", false).apply();
                   MockBubbleService.launcherVisible = false;
                   MockBubbleService.refresh();
@@ -1163,6 +2730,10 @@ jobs:
 
               @Override
               public void onBackPressed() {
+                  if (mockFromBubble && page == MOCK) {
+                      closeMockFromBubble();
+                      return;
+                  }
                   if (page == HOME) {
                       if (!sel.isEmpty()) { sel.clear(); refreshCells(); updateSel(); }
                       else if (plusOpen) closePlus();
@@ -1197,6 +2768,12 @@ jobs:
                       show();
                   } else if (page == ICON) {
                       page = HPAGE;
+                      show();
+                  } else if (page == ACTS || page == BLBG) {
+                      page = BUB;
+                      show();
+                  } else if (page == BUB) {
+                      page = MOCK;
                       show();
                   } else if (page == MOCK) {
                       page = SETTINGS;
@@ -1457,7 +3034,8 @@ jobs:
                   SwipePanel(Context c) { super(c); }
 
                   boolean sideOk(float dx) {
-                      if ((sp.getBoolean("fpAnim", true) && sp.getInt("fdAnim", -1) < 0) || !fromDock || openFolder == null) return false;
+                      boolean loopOn = sp.getBoolean("fpLoop", false);
+                      if ((!loopOn && sp.getBoolean("fpAnim", true) && sp.getInt("fdAnim", -1) < 0) || !fromDock || openFolder == null) return false;
                       return dockNeighbor(openFolder, dx > 0) != null;
                   }
 
@@ -1593,12 +3171,12 @@ jobs:
                   if (!glass()) {
                       GradientDrawable g = new GradientDrawable();
                       g.setCornerRadius(dp(rDp));
-                      g.setColor(has ? sp.getInt(ck, 0) : scaleA(plain, boxFade));
+                      g.setColor(has ? (boxFade < 0.5f ? scaleA(sp.getInt(ck, 0), boxFade / 0.6f) : sp.getInt(ck, 0)) : scaleA(plain, boxFade));
                       return g;
                   }
                   Glass gl = new Glass(has ? sp.getInt(ck, 0) : (light() ? 0x44FFFFFF : 0x26FFFFFF), dp(rDp), null);
                   gl.blurOn = menuPage() && mbgBmp != null;
-                  gl.fade = has ? 1f : boxFade;
+                  gl.fade = has ? (boxFade < 0.5f ? boxFade / 0.6f : 1f) : boxFade;
                   return gl;
               }
 
@@ -2542,6 +4120,9 @@ jobs:
                   else if (page == LANG) v = langPage(fg);
                   else if (page == PICKER) v = pickerPage(fg);
                   else if (page == MOCK) v = mockPage(fg);
+                  else if (page == ACTS) v = actsPage(fg);
+                  else if (page == BUB) v = bubblePage(fg);
+                  else if (page == BLBG) v = bgPageG(6, fg);
                   else if (page == BACKUP) v = backupPage(fg);
                   else if (page == RESTORE) v = restorePage(fg);
                   else v = homePage(fg);
@@ -2570,6 +4151,7 @@ jobs:
                   int from = shownPage;
                   shownPage = page;
                   swap(v, transDir(from, page));
+                  if (page == HOME) container.postDelayed(() -> saveRunRect(), 600);
               }
 
               // ================= home =================
@@ -3878,6 +5460,7 @@ jobs:
                   int rows, topPad, botPad;
 
                   int content;
+                  final Map<View, Integer> origIcon = new HashMap<>();
 
                   GridPage(Context c, LinearLayout rb, int rows, int topPad, int botPad, int content) {
                       super(c);
@@ -3900,6 +5483,25 @@ jobs:
                       if (g >= 0) { ch = content + g; off = g / 2; }
                       else { ch = Math.max(dp(16), avail / Math.max(1, rows)); off = 0; }
                       rowsBox.setPadding(0, topPad + off, 0, 0);
+                      // rows too tight for icon + name: the app icons shrink just enough, so the names are never cut off
+                      int over = g < 0 ? Math.max(0, content - ch) : 0;
+                      for (int r = 0; r < rowsBox.getChildCount(); r++) {
+                          ViewGroup rw = (ViewGroup) rowsBox.getChildAt(r);
+                          for (int k = 0; k < rw.getChildCount(); k++) {
+                              View cv = rw.getChildAt(k);
+                              if (!(cv instanceof FrameLayout) || ((FrameLayout) cv).getChildCount() == 0) continue;
+                              View inner = ((FrameLayout) cv).getChildAt(0);
+                              if (!(inner instanceof LinearLayout) || ((LinearLayout) inner).getChildCount() < 2) continue;
+                              View ic = ((LinearLayout) inner).getChildAt(0);
+                              if (!(ic instanceof ImageView)) continue;
+                              ViewGroup.LayoutParams ilp = ic.getLayoutParams();
+                              if (ilp == null) continue;
+                              Integer o0 = origIcon.get(ic);
+                              if (o0 == null) { o0 = ilp.height; origIcon.put(ic, o0); }
+                              int ns = over > 0 ? Math.max(dp(18), o0 - over) : o0;
+                              if (ilp.height != ns) { ilp.width = ns; ilp.height = ns; ic.setLayoutParams(ilp); }
+                          }
+                      }
                       for (int r = 0; r < rowsBox.getChildCount(); r++) {
                           ViewGroup row = (ViewGroup) rowsBox.getChildAt(r);
                           for (int k = 0; k < row.getChildCount(); k++) {
@@ -4093,9 +5695,9 @@ jobs:
                   int contentH = Math.max(iconPx, folderPx) + dp(8)
                           + (hide ? 0 : dp(4) + (int) (Math.max(ts, fts) * dm.scaledDensity * 1.25f));
                   int edgeGap = Math.max(0, cellH - contentH) / 2;
-                  int firstTop = edgeGap + rowGapPx;
+                  // however small the spacing gets, the first row stops at the top edge of the frame (never behind it)
+                  int firstTop = Math.max(0, edgeGap + rowGapPx);
                   int firstNeg = 0;
-                  if (firstTop < 0) { firstNeg = firstTop; firstTop = 0; }
                   rowsBox.setPadding(0, firstTop + (fadeTop ? dres + fadeLen : 0), 0, Math.max(0, edgeGap + rowGapPx) + (fadeTop ? 0 : dres));
                   rowsBox.setClipChildren(false);
                   col.setClipChildren(false);
@@ -4190,6 +5792,16 @@ jobs:
                       } else {
                           for (int k = i + 1; k < l.size(); k++)
                               if (l.get(k).startsWith("folder:") && findFolder(l.get(k).substring(7)) != null) return l.get(k).substring(7);
+                      }
+                      // endless rotation: after the last folder comes the first one, before the first comes the last
+                      if (sp.getBoolean("fpLoop", false)) {
+                          if (left) {
+                              for (int k = l.size() - 1; k > i; k--)
+                                  if (l.get(k).startsWith("folder:") && findFolder(l.get(k).substring(7)) != null) return l.get(k).substring(7);
+                          } else {
+                              for (int k = 0; k < i; k++)
+                                  if (l.get(k).startsWith("folder:") && findFolder(l.get(k).substring(7)) != null) return l.get(k).substring(7);
+                          }
                       }
                       return null;
                   }
@@ -4800,7 +6412,6 @@ jobs:
                   });
                   return wrap;
               }
-
               View menuRow(int color, String sym, String label, int fg, View.OnClickListener c) {
                   LinearLayout r = new LinearLayout(this);
                   r.setGravity(Gravity.CENTER_VERTICAL);
@@ -4887,6 +6498,15 @@ jobs:
                                   "The open folder stays open until you close it, even after the launcher was closed"),
                           keepF ? 3 : 2, fg, w -> {
                       sp.edit().putBoolean("fpKeep", !keepF).commit();
+                      show();
+                  }));
+                  // endless rotation: swipe left / right on an open dock folder moves to the next folder, round and round
+                  final boolean loopOn = sp.getBoolean("fpLoop", false);
+                  sb.addView(row(0xFF00ACC1, "∞", t("چرخش نامحدود", "Endless rotation"),
+                          t("با کشیدن انگشت به چپ و راست روی پوشه باز، به پوشه بعدی می‌روید؛ بعد از آخرین پوشه دوباره اولی باز می‌شود",
+                                  "Swipe left / right on an open folder to move to the next one; after the last folder the first opens again"),
+                          loopOn ? 3 : 2, fg, w -> {
+                      sp.edit().putBoolean("fpLoop", !loopOn).apply();
                       show();
                   }));
                   // animation: on = the grow animation plays every time; off = it plays once, then crossfade
@@ -5804,6 +7424,17 @@ jobs:
                   }
               }
 
+              // the size of "Run apps" is kept, so the bubble can open an app as a popup of that same size
+              void saveRunRect() {
+                  try {
+                      if (page != HOME) return;
+                      Rect r = runRect();
+                      if (r == null || r.width() < dp(50) || r.height() < dp(50)) return;
+                      String v = r.left + "," + r.top + "," + r.right + "," + r.bottom;
+                      if (!v.equals(sp.getString("runRect", ""))) sp.edit().putString("runRect", v).apply();
+                  } catch (Throwable e) { }
+              }
+
               void launchApp(String pkg) {
                   Intent li = getPackageManager().getLaunchIntentForPackage(pkg);
                   if (li == null) return;
@@ -5902,7 +7533,7 @@ jobs:
                           v -> { page = BEHAVIOR; show(); }));
                   r.addView(row(0xFF29B6F6, "⚓", t("داک", "Dock"), null, 0, fg,
                           v -> { page = DOCK; show(); }));
-                  r.addView(row(0xFFFF5722, "🔮", t("ماک (حباب شناور)", "Mock (Floating Bubble)"), null, 0, fg,
+                  r.addView(row(0xFFFF5722, "🔮", t("حباب شناور", "Floating Bubble"), null, 0, fg,
                           v -> { page = MOCK; show(); }));
                   r.addView(row(0xFF8D6E63, "📁", t("تنظیمات پوشه", "Folder Settings"), null, 0, fg,
                           v -> { page = FOLDER; show(); }));
@@ -6048,10 +7679,10 @@ jobs:
 
               View mockPage(int fg) {
                   LinearLayout r = vbox();
-                  r.addView(topBar(t("تنظیمات ماک", "Mock Settings"), fg));
+                  r.addView(topBar(t("تنظیمات حباب شناور", "Floating Bubble Settings"), fg));
 
                   boolean mockOn = sp.getBoolean("mock_on", false);
-                  r.addView(row(0xFFFF5722, "🔮", t("فعال‌سازی ماک", "Enable Mock"),
+                  r.addView(row(0xFFFF5722, "🔮", t("فعال‌سازی", "Enable"),
                           t("نمایش حباب شناور روی سایر برنامه‌ها", "Show floating bubble over other apps"),
                           mockOn ? 3 : 2, fg, v -> {
                       if (!mockOn) {
@@ -6077,9 +7708,16 @@ jobs:
                       }
                   };
 
+                  // everything about what the bubble does and its list lives on its own page
+                  r.addView(row(0xFF00897B, "💬", t("عملکرد", "Actions"),
+                          t("لانچر، عملکردها و ظاهر لیست حباب", "Launcher, actions and the look of the bubble list"),
+                          0, fg, v -> {
+                      page = BUB;
+                      show();
+                  }));
                   r.addView(accordionRow(0xFF2196F3, "📐", t("سایز حباب", "Bubble Size"), "mock_size", 30, 100, 56, " dp", fg, updateMock));
                   r.addView(accordionRow(0xFF4CAF50, "💧", t("شفافیت حباب", "Bubble Opacity"), "mock_alpha", 20, 100, 90, "%", fg, updateMock));
-                  r.addView(accordionRow(0xFFFFB300, "⏱", t("سرعت", "Speed"), "mock_speed", 50, 2000, 2000, " ms", fg, updateMock));
+                  r.addView(accordionRow(0xFFFFB300, "⏱", t("سرعت", "Speed"), "mock_speed", 2, 2000, 2000, " ms", fg, updateMock));
                   r.addView(accordionRow(0xFF5C6BC0, "🙈", t("نهان", "Hide"), "mock_hide", 30, 70, 68, "%", fg, updateMock));
                   r.addView(accordionRow(0xFF00ACC1, "↔", t("محل حباب (افقی)", "Bubble position (horizontal)"), "mock_px", 0, 100, 70, "%", fg, updateMock));
                   r.addView(accordionRow(0xFF7E57C2, "↕", t("محل حباب (عمودی)", "Bubble position (vertical)"), "mock_py", 0, 100, 40, "%", fg, updateMock));
@@ -6094,6 +7732,284 @@ jobs:
                   }));
 
                   return wrapScroll(r);
+              }
+
+              // ---------- bubble page ----------
+              View bubblePage(final int fg) {
+                  LinearLayout r = vbox();
+                  r.addView(topBar(t("حباب", "Bubble"), fg));
+                  final boolean bubLau = sp.getBoolean("bub_launcher", true);
+                  final boolean bubAct = sp.getBoolean("bub_act_on", false);
+                  r.addView(row(0xFF3D7BF7, "🏠", t("لانچر", "Launcher"),
+                          t("با زدن روی حباب، برنامه لانچر باز شود", "Tapping the bubble opens the launcher app"),
+                          bubLau ? 3 : 2, fg, v -> {
+                      sp.edit().putBoolean("bub_launcher", !bubLau).apply();
+                      show();
+                  }));
+                  r.addView(row(0xFFEF6C00, "⚡", t("عملکرد", "Actions"),
+                          t("با زدن روی حباب، لیست عملکردها باز شود؛ با زدن روی نام برنامه فقط آخرین عملکرد آن اجرا می‌شود",
+                                  "Tapping the bubble opens the action list; tapping an app name runs only its last action"),
+                          bubAct ? 3 : 2, fg, v -> {
+                      sp.edit().putBoolean("bub_act_on", !bubAct).apply();
+                      show();
+                  }));
+                  if (bubAct) {
+                      // how the action list opens: a list of effects (lighter boxes) and its speed
+                      final int fx = sp.getInt("bub_fx", 0);
+                      final String[] fxNames = {
+                              t("بدون افکت", "No effect"), t("محو شدن", "Fade"), t("کشویی", "Slide from the side"),
+                              t("بزرگ شدن از حباب", "Grow from the bubble"), t("جهشی", "Bounce"), t("کشویی از بالا", "Slide from the top"), t("قطره‌ای", "Drop")};
+                      final int[] fxDots = {0xFF9E9E9E, 0xFF42A5F5, 0xFF26A69A, 0xFFFF7043, 0xFFAB47BC, 0xFF66BB6A, 0xFF29B6F6};
+                      r.addView(accordionGroupFaded(0xFF26A69A, "🎞", t("افکت", "Effect"), fg, 0.6f, () -> {
+                          View[] its = new View[fxNames.length];
+                          for (int i = 0; i < its.length; i++) {
+                              final int k = i;
+                              its[i] = row(fxDots[i], "✦", fxNames[i], null, fx == i ? 1 : 0, fg, v -> {
+                                  sp.edit().putInt("bub_fx", k).apply();
+                                  show();
+                              });
+                          }
+                          return its;
+                      }));
+                      r.addView(accordionRow(0xFFFFB300, "⏱", t("سرعت افکت", "Effect speed"), "bub_fxms", 100, 1500, 300, " ms", fg, null));
+                      r.addView(accordionRow(0xFF29B6F6, "💧", t("سرعت افکت قطره‌ای", "Drop effect speed"), "bub_dropms", 10, 2000, 750, " ms", fg, null));
+                  }
+                  r.addView(row(0xFF8E24AA, "📝", t("ثبت عملکردها", "Record actions"),
+                          BubbleActs.count(BubbleActs.load(sp)) + " / " + BubbleActs.MAX,
+                          0, fg, v -> {
+                      page = ACTS;
+                      show();
+                  }));
+                  // icon and name of every action in the list: at least one of them is always on
+                  final boolean icoOn = sp.getBoolean("bub_ico", false);
+                  final boolean nmOn = sp.getBoolean("bub_nm", true);
+                  r.addView(row(0xFF42A5F5, "🖼", t("آیکون عملکرد", "Action icon"),
+                          t("آیکون برنامه کنار هر عملکرد در لیست", "The app icon next to every action in the list"),
+                          icoOn ? 3 : 2, fg, v -> {
+                      SharedPreferences.Editor ed = sp.edit().putBoolean("bub_ico", !icoOn);
+                      if (icoOn && !nmOn) ed.putBoolean("bub_nm", true);
+                      ed.apply();
+                      show();
+                  }));
+                  r.addView(accordionRow(0xFF26C6DA, "📏", t("سایز آیکون عملکرد", "Action icon size"), "bub_isz", 5, 32, 20, " dp", fg, null));
+                  r.addView(row(0xFFFFA726, "🔤", t("اسم عملکرد", "Action name"),
+                          t("نام هر عملکرد سمت راست آیکون آن", "The name of every action to the right of its icon"),
+                          nmOn || !icoOn ? 3 : 2, fg, v -> {
+                      SharedPreferences.Editor ed = sp.edit().putBoolean("bub_nm", !nmOn);
+                      if (nmOn && !icoOn) ed.putBoolean("bub_ico", true);
+                      ed.apply();
+                      show();
+                  }));
+                  // every app of the list in its own box, stacked, with a gap between them
+                  final boolean sep = sp.getBoolean("bub_sep", false);
+                  r.addView(toggleRowThen(0xFF26A69A, "▦", t("کادر جدا", "Separate boxes"),
+                          t("هر برنامه در کادر جداگانه زیر هم؛ عرض و ارتفاع لیست اندازه همه کادرها را هم‌زمان تغییر می‌دهد",
+                                  "Every app in its own box, stacked; list width and height resize all the boxes together"),
+                          "bub_sep", false, fg, () -> show()));
+                  // how many boxes are visible at once (the others scroll in)
+                  r.addView(accordionRow(0xFF5C6BC0, "🔢", t("تعداد کادرها", "Number of boxes"), "bub_cnt", 2, 20, 20, "", fg, null));
+                  // look of the list (even fainter boxes inside)
+                  r.addView(accordionGroupFaded(0xFF5E35B1, "🎨", t("پس‌زمینه لیست عملکرد", "Action list background"), fg, 0.4f, () -> {
+                      List<View> l = new ArrayList<>();
+                      l.add(row(0xFFE91E63, "🎨", t("رنگ", "Color"),
+                              t("رنگ و شفافیت پس‌زمینه لیست", "Color and opacity of the list background"),
+                              0, fg, v -> {
+                          page = BLBG;
+                          show();
+                      }));
+                      l.add(accordionRow(0xFF42A5F5, "↔", t("عرض لیست", "List width"), "bub_lw", 15, 200, 190, " dp", fg, null));
+                      l.add(accordionRow(0xFF26C6DA, "↕", t("ارتفاع لیست", "List height"), "bub_lh", 20, 100, 100, "%", fg, null));
+                      if (sep) l.add(accordionRow(0xFF8D6E63, "⇕", t("فاصله کادر لیست", "List box spacing"), "bub_gap", -2000, 6000, 800, " µm", fg, null));
+                      l.add(row(0xFF7E57C2, "🪟", t("شیشه‌ای", "Glass"),
+                              t("لبه روشن و محو شدن پشت لیست", "Bright edge and blur behind the list"),
+                              sp.getBoolean("bub_lglass", false) ? 3 : 2, fg, v -> {
+                          sp.edit().putBoolean("bub_lglass", !sp.getBoolean("bub_lglass", false)).apply();
+                          show();
+                      }));
+                      l.add(accordionRow(0xFFFFB300, "🔤", t("اندازه نام برنامه‌ها", "App name size"), "bub_lts", 10, 28, 15, " sp", fg, null));
+                      return l.toArray(new View[0]);
+                  }));
+                  return wrapScroll(r);
+              }
+
+              // ---------- bubble actions: up to 20 saved actions ----------
+              View actsPage(final int fg) {
+                  LinearLayout r = vbox();
+                  r.addView(topBar(t("عملکردهای حباب", "Bubble actions"), fg));
+                  TextView hint = new TextView(this);
+                  hint.setText(t("هر جایگاه یک عملکرد است: برنامه را انتخاب می‌کنید، یک نام دلخواه می‌دهید و نوع اجرا را برمی‌گزینید (پاپ آپ، کامل، ضبط روش داخل برنامه یا کاشی تنظیمات سریع). در لیست حباب با همان نام دلخواه دیده می‌شود. با ضبط روش، برنامه باز می‌شود و کلیک‌های شما ذخیره می‌شود؛ با زدن روی نام، همان کلیک‌ها دوباره اجرا می‌شود.",
+                          "Each slot is one action: pick an app, give it a custom name and choose how it runs (popup, full, record a way inside the app, or a Quick Settings tile). It shows in the bubble list with that name. When recording, the app opens and your taps are saved; tapping the name plays the same taps again."));
+                  hint.setTextSize(12);
+                  hint.setTextColor(fg);
+                  hint.setAlpha(0.65f);
+                  hint.setPadding(dp(4), dp(10), dp(4), 0);
+                  r.addView(hint);
+                  final float oldFade = boxFade;
+                  boxFade = 0.6f; // the slots are secondary (fainter) boxes
+                  final BubbleActs.Act[] acts = BubbleActs.load(sp);
+                  for (int i = 0; i < BubbleActs.MAX; i++) {
+                      final int slot = i;
+                      BubbleActs.Act a = acts[i];
+                      if (a == null) {
+                          r.addView(row(0xFF9E9E9E, "+", (i + 1) + ". " + t("ثبت عملکرد", "Record action"),
+                                  null, 0, fg, v -> actSlotClick(slot)));
+                      } else {
+                          String sub = (a.label == null || a.label.isEmpty() ? a.type : a.label)
+                                  + "  •  " + BubbleActs.appLabel(this, a.pkg);
+                          r.addView(row(0xFF26A69A, "✓", (i + 1) + ". " + BubbleActs.title(this, a),
+                                  sub, 0, fg, v -> actSlotClick(slot)));
+                      }
+                  }
+                  boxFade = oldFade;
+                  return wrapScroll(r);
+              }
+
+              void actSlotClick(final int slot) {
+                  final BubbleActs.Act[] acts = BubbleActs.load(sp);
+                  final BubbleActs.Act a = acts[slot];
+                  if (a == null) {
+                      actPickApp(slot);
+                      return;
+                  }
+                  CharSequence[] items = {
+                          t("تغییر عملکرد", "Change action"),
+                          t("تغییر نام", "Rename"),
+                          t("حذف", "Delete")};
+                  new AlertDialog.Builder(this).setTitle((slot + 1) + ". " + BubbleActs.title(this, a))
+                          .setItems(items, (d, w) -> {
+                              if (w == 0) {
+                                  actPickApp(slot);
+                              } else if (w == 1) {
+                                  actAskName(slot, a.pkg, BubbleActs.appLabel(this, a.pkg), BubbleActs.title(this, a), true);
+                              } else {
+                                  acts[slot] = null;
+                                  BubbleActs.save(sp, acts);
+                                  sp.edit().remove("bub_on_s" + slot).apply();
+                                  show();
+                              }
+                          }).setNegativeButton(t("لغو", "Cancel"), null).show();
+              }
+
+              // step 1: which app
+              void actPickApp(final int slot) {
+                  PackageManager pm = getPackageManager();
+                  Intent q = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+                  Set<String> seen = new HashSet<>();
+                  final List<String[]> l = new ArrayList<>();
+                  for (ResolveInfo ri : pm.queryIntentActivities(q, 0)) {
+                      String p = ri.activityInfo.packageName;
+                      if (p.equals(getPackageName()) || !seen.add(p)) continue;
+                      l.add(new String[]{ri.loadLabel(pm).toString(), p});
+                  }
+                  Collections.sort(l, (x, y) -> x[0].compareToIgnoreCase(y[0]));
+                  CharSequence[] names = new CharSequence[l.size()];
+                  for (int i = 0; i < names.length; i++) names[i] = l.get(i)[0];
+                  new AlertDialog.Builder(this).setTitle(t("انتخاب برنامه", "Choose app"))
+                          .setItems(names, (d, w) -> actAskName(slot, l.get(w)[1], l.get(w)[0], l.get(w)[0], false))
+                          .setNegativeButton(t("لغو", "Cancel"), null).show();
+              }
+
+              // step 2: the name this action gets in the bubble list
+              void actAskName(final int slot, final String pkg, final String appName, String initial, final boolean rename) {
+                  final EditText et = new EditText(this);
+                  et.setSingleLine(true);
+                  et.setText(initial);
+                  et.setSelection(initial.length());
+                  FrameLayout fl = new FrameLayout(this);
+                  fl.setPadding(dp(20), dp(8), dp(20), 0);
+                  fl.addView(et, new FrameLayout.LayoutParams(-1, -2));
+                  new AlertDialog.Builder(this).setTitle(t("نام عملکرد", "Action name"))
+                          .setMessage(t("این نام در لیست عملکرد حباب نمایش داده می‌شود.", "This name is shown in the bubble action list."))
+                          .setView(fl)
+                          .setPositiveButton(t("تأیید", "OK"), (d, w) -> {
+                              String nm = et.getText().toString().trim();
+                              if (nm.isEmpty()) nm = appName;
+                              if (rename) {
+                                  BubbleActs.Act[] acts = BubbleActs.load(sp);
+                                  if (acts[slot] != null) {
+                                      acts[slot].name = nm;
+                                      BubbleActs.save(sp, acts);
+                                  }
+                                  show();
+                              } else {
+                                  actMenu(slot, pkg, nm, appName);
+                              }
+                          })
+                          .setNegativeButton(t("لغو", "Cancel"), null).show();
+              }
+
+              // step 3: how the action runs
+              void actMenu(final int slot, final String pkg, final String name, final String appName) {
+                  CharSequence[] items = {
+                          t("🗗 باز شدن در پاپ آپ", "🗗 Open in a popup"),
+                          t("⛶ باز شدن کامل", "⛶ Open full"),
+                          t("🎬 ضبط روش داخل برنامه", "🎬 Record a way inside the app"),
+                          t("🔲 کاشی تنظیمات سریع", "🔲 Quick Settings tile")};
+                  new AlertDialog.Builder(this).setTitle(name).setItems(items, (d, w) -> {
+                      if (w == 0) actSave(slot, pkg, "app", "popup", t("باز شدن در پاپ آپ", "Open in popup"), name);
+                      else if (w == 1) actSave(slot, pkg, "app", "full", t("باز شدن کامل", "Open full"), name);
+                      else if (w == 2) actStartMacro(slot, pkg, name);
+                      else actPickTile(slot, pkg, name, appName);
+                  }).setNegativeButton(t("لغو", "Cancel"), null).show();
+              }
+
+              // the app opens and everything tapped in it is recorded until "Stop recording" is pressed
+              void actStartMacro(int slot, String pkg, String name) {
+                  if (!TileClickService.ready()) {
+                      actAskA11y();
+                      return;
+                  }
+                  actSave(slot, pkg, "macro", "[]", "🎬 0", name);
+                  Toast.makeText(this, t("برنامه باز شد؛ روش دلخواه را انتخاب کنید و در پایان «پایان ضبط» را بزنید",
+                          "The app opened: pick the way you want, then press \"Stop recording\""), Toast.LENGTH_LONG).show();
+                  TileClickService.record(pkg, slot);
+              }
+
+              void actAskA11y() {
+                  new AlertDialog.Builder(this).setTitle(t("دسترسی‌پذیری", "Accessibility"))
+                          .setMessage(t("برای این کار باید سرویس دسترسی‌پذیری VadLan را در تنظیمات گوشی روشن کنید.",
+                                  "Turn on the VadLan accessibility service in the phone settings first."))
+                          .setPositiveButton(t("باز کردن تنظیمات", "Open settings"), (d2, w2) -> {
+                              try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); } catch (Exception e) { }
+                          })
+                          .setNegativeButton(t("بعداً", "Later"), null).show();
+              }
+
+              // a Quick Settings tile: the name written on the tile is typed here
+              void actPickTile(final int slot, final String pkg, final String name, String appName) {
+                  final EditText et = new EditText(this);
+                  et.setSingleLine(true);
+                  et.setText(appName);
+                  et.setSelection(appName.length());
+                  FrameLayout fl = new FrameLayout(this);
+                  fl.setPadding(dp(20), dp(8), dp(20), 0);
+                  fl.addView(et, new FrameLayout.LayoutParams(-1, -2));
+                  new AlertDialog.Builder(this).setTitle(t("نام کاشی", "Tile name"))
+                          .setMessage(t("نامی که روی کاشی در پنل تنظیمات سریع نوشته شده است را وارد کنید.",
+                                  "Type the name written on the tile in the Quick Settings panel."))
+                          .setView(fl)
+                          .setPositiveButton(t("ثبت", "Save"), (d, w) -> {
+                              String nm = et.getText().toString().trim();
+                              if (nm.isEmpty()) return;
+                              actSave(slot, pkg, "tile", nm, "🔲 " + nm, name);
+                              if (!TileClickService.ready()) actAskA11y();
+                          })
+                          .setNegativeButton(t("لغو", "Cancel"), null).show();
+              }
+
+              void actSave(int slot, String pkg, String type, String id, String label, String name) {
+                  BubbleActs.Act[] acts = BubbleActs.load(sp);
+                  BubbleActs.Act a = new BubbleActs.Act();
+                  a.pkg = pkg;
+                  a.type = type;
+                  a.id = id;
+                  a.label = label;
+                  a.name = name;
+                  a.ts = System.currentTimeMillis();
+                  acts[slot] = a;
+                  BubbleActs.save(sp, acts);
+                  page = ACTS;
+                  show();
               }
 
               void setTile(boolean on) {
@@ -6133,6 +8049,7 @@ jobs:
                   if (mode == 4) return sp.contains("boxMain") ? sp.getInt("boxMain", 0) : (glass() ? (light() ? 0x44FFFFFF : 0x26FFFFFF) : (light() ? 0x14000000 : 0x1AFFFFFF));
                   if (mode == 5) return sp.contains("boxSub") ? sp.getInt("boxSub", 0)
                           : scaleA(glass() ? (light() ? 0x44FFFFFF : 0x26FFFFFF) : (light() ? 0x14000000 : 0x1AFFFFFF), 0.6f);
+                  if (mode == 6) return sp.getInt("bub_lcol", 0xF2202024);
                   return mode == 0 ? bg : (mode == 1 ? mbg()
                           : (mode == 2 ? sp.getInt("hfBg", 0x6628282C) : sp.getInt("topBoxBg", 0x6628282C)));
               }
@@ -6155,7 +8072,7 @@ jobs:
                       return;
                   }
                   if (mode >= 4) {
-                      sp.edit().putInt(mode == 4 ? "boxMain" : "boxSub", c).apply();
+                      sp.edit().putInt(mode == 4 ? "boxMain" : mode == 5 ? "boxSub" : "bub_lcol", c).apply();
                       show();
                       return;
                   }
@@ -6209,7 +8126,7 @@ jobs:
                           : (mode == 1 ? t("رنگ منو", "Menu color")
                           : (mode == 2 ? t("پس‌زمینه کادر", "Frame background")
                           : (mode == 3 ? t("رنگ کادر تنظیمات", "Settings frame color")
-                          : (mode == 4 ? t("رنگ کادر اصلی", "Main box color") : t("رنگ کادر فرعی", "Secondary box color")))));
+                          : (mode == 4 ? t("رنگ کادر اصلی", "Main box color") : mode == 5 ? t("رنگ کادر فرعی", "Secondary box color") : t("رنگ لیست عملکرد", "Action list color")))));
                   LinearLayout p = vbox();
                   p.addView(topBar(title, fg));
 
@@ -6994,3 +8911,4 @@ jobs:
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
