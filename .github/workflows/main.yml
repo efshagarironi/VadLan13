@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "49.0"
+                  versionName "50.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -1218,6 +1218,7 @@ jobs:
                   params.x = (sw - params.width) * sp.getInt("mock_px", 70) / 100;
                   params.y = (sh - params.height) * sp.getInt("mock_py", 40) / 100;
               }
+
               private void applyVisibility() {
                   if (bubbleView == null) return;
                   boolean over = sp.getBoolean("mock_over", true);
@@ -1272,14 +1273,14 @@ jobs:
               private ValueAnimator backAnim;
 
               // after a swipe the bubble glides back to its own place with a soft, quick spring
-              private void springBack(final int tx0, final int ty0) {
+              private void springBack(final int tx0, final int ty0, final Runnable after) {
                   if (params == null || bubbleView == null) return;
                   if (backAnim != null) backAnim.cancel();
                   final int fx0 = params.x, fy0 = params.y;
                   final ValueAnimator an = ValueAnimator.ofFloat(0f, 1f);
                   backAnim = an;
-                  an.setDuration(260);
-                  an.setInterpolator(new OvershootInterpolator(1.3f));
+                  an.setDuration(200);
+                  an.setInterpolator(new OvershootInterpolator(1.1f));
                   an.addUpdateListener(a -> {
                       if (bubbleView == null) return;
                       float t = (Float) a.getAnimatedValue();
@@ -1288,6 +1289,9 @@ jobs:
                       try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) { }
                   });
                   an.addListener(new AnimatorListenerAdapter() {
+                      boolean cancelled;
+                      @Override
+                      public void onAnimationCancel(Animator x) { cancelled = true; }
                       @Override
                       public void onAnimationEnd(Animator x) {
                           if (backAnim != an) return;
@@ -1298,6 +1302,7 @@ jobs:
                           }
                           handler.removeCallbacks(collapseRunnable);
                           if (listRoot == null) handler.postDelayed(collapseRunnable, collapseDelay());
+                          if (after != null && !cancelled) after.run();
                       }
                   });
                   an.start();
@@ -1761,9 +1766,15 @@ jobs:
                                   int sw = getResources().getDisplayMetrics().widthPixels;
                                   int sh = getResources().getDisplayMetrics().heightPixels;
                                   if (gesture && !moved) {
-                                      if (ev.getAction() == MotionEvent.ACTION_UP
-                                              && Math.max(Math.abs(lastDx), Math.abs(lastDy)) > dpToPx(28)) runSwipe(lastDx, lastDy);
-                                      springBack(ix, iy);
+                                      // the bubble glides back at once; the app starts only when it is home (opening the launcher
+                                      // on the main thread would freeze the glide for a moment)
+                                      final float sdx = lastDx, sdy = lastDy;
+                                      boolean fire = ev.getAction() == MotionEvent.ACTION_UP
+                                              && Math.max(Math.abs(sdx), Math.abs(sdy)) > dpToPx(28);
+                                      springBack(ix, iy, fire ? new Runnable() {
+                                          @Override
+                                          public void run() { runSwipe(sdx, sdy); }
+                                      } : null);
                                   } else if (moved) {
                                       int px = (int) (params.x * 100f / Math.max(1, sw - params.width));
                                       int py = (int) (params.y * 100f / Math.max(1, sh - params.height));
@@ -2437,6 +2448,7 @@ jobs:
                   Drawable top = mbgBmp != null ? new BitmapDrawable(getResources(), mbgBmp) : new ColorDrawable(mbg());
                   return new LayerDrawable(new Drawable[]{new ColorDrawable(0xFF000000), top});
               }
+
               // reads a saved picture when its switch ("pre"+"Img") is on
               Bitmap loadSrc(String pre, String file) {
                   if (!sp.getBoolean(pre + "Img", false)) return null;
