@@ -98,7 +98,7 @@ jobs:
                   targetSdk 34
                   // minutes since 1970: always bigger than the previous build, so Android never sees it as a downgrade
                   versionCode System.currentTimeMillis().intdiv(60000L).intValue()
-                  versionName "48.0"
+                  versionName "49.0"
               }
               buildTypes {
                   debug { signingConfig signingConfigs.vadlan }
@@ -1154,6 +1154,7 @@ jobs:
                   @Override
                   public void run() {
                       if (listRoot != null) return; // the action list is open: the bubble stays out
+                      if (backAnim != null) return; // the bubble is gliding back
                       if (bubbleView != null && params != null) {
                           int sw = getResources().getDisplayMetrics().widthPixels;
                           boolean right = sp.getInt("mock_px", 70) > 50;
@@ -1217,7 +1218,6 @@ jobs:
                   params.x = (sw - params.width) * sp.getInt("mock_px", 70) / 100;
                   params.y = (sh - params.height) * sp.getInt("mock_py", 40) / 100;
               }
-
               private void applyVisibility() {
                   if (bubbleView == null) return;
                   boolean over = sp.getBoolean("mock_over", true);
@@ -1258,12 +1258,49 @@ jobs:
                   if (listRoot != null) { closeList(); return; }
                   // this very touch just closed the list (touch outside the list = on the bubble): do not open it again
                   if (Math.abs(downAt - lastOutside) < 250) return;
+                  boolean lau = sp.getBoolean("bub_launcher", true);
                   boolean act = sp.getBoolean("bub_act_on", false);
                   boolean has = BubbleActs.pkgs(BubbleActs.load(sp)).size() > 0;
                   if (act && has) {
                       dropSquash();
-                      openList(false);
+                      openList(lau);
+                  } else if (lau) {
+                      openLauncher(false);
                   }
+              }
+
+              private ValueAnimator backAnim;
+
+              // after a swipe the bubble glides back to its own place with a soft, quick spring
+              private void springBack(final int tx0, final int ty0) {
+                  if (params == null || bubbleView == null) return;
+                  if (backAnim != null) backAnim.cancel();
+                  final int fx0 = params.x, fy0 = params.y;
+                  final ValueAnimator an = ValueAnimator.ofFloat(0f, 1f);
+                  backAnim = an;
+                  an.setDuration(260);
+                  an.setInterpolator(new OvershootInterpolator(1.3f));
+                  an.addUpdateListener(a -> {
+                      if (bubbleView == null) return;
+                      float t = (Float) a.getAnimatedValue();
+                      params.x = fx0 + Math.round((tx0 - fx0) * t);
+                      params.y = fy0 + Math.round((ty0 - fy0) * t);
+                      try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) { }
+                  });
+                  an.addListener(new AnimatorListenerAdapter() {
+                      @Override
+                      public void onAnimationEnd(Animator x) {
+                          if (backAnim != an) return;
+                          backAnim = null;
+                          if (params != null) { params.x = tx0; params.y = ty0; }
+                          if (bubbleView != null) {
+                              try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) { }
+                          }
+                          handler.removeCallbacks(collapseRunnable);
+                          if (listRoot == null) handler.postDelayed(collapseRunnable, collapseDelay());
+                      }
+                  });
+                  an.start();
               }
 
               // the bubble is pressed and pulled like a water drop, then springs back
@@ -1280,6 +1317,10 @@ jobs:
 
               // dragging the bubble up / left / down / right opens the app chosen for that direction
               private void runSwipe(float dx, float dy) {
+                  if (Math.abs(dy) >= Math.abs(dx) && dy < 0) {
+                      openLauncher(false);   // up: the VadLan app itself
+                      return;
+                  }
                   String key;
                   if (Math.abs(dy) >= Math.abs(dx)) key = dy < 0 ? "swipe_up" : "swipe_down";
                   else key = dx < 0 ? "swipe_left" : "swipe_right";
@@ -1675,6 +1716,7 @@ jobs:
                       public boolean onTouch(View v, MotionEvent ev) {
                           switch (ev.getAction()) {
                               case MotionEvent.ACTION_DOWN:
+                                  if (backAnim != null) { backAnim.cancel(); backAnim = null; }
                                   handler.removeCallbacks(collapseRunnable);
                                   bubbleView.setAlpha(sp.getInt("mock_alpha", 90) / 100f);
                                   applyPosition();
@@ -1706,7 +1748,7 @@ jobs:
                                       moved = true;
                                       if (listRoot != null) closeList();
                                   }
-                                  if (moved) {
+                                  if (moved || gesture) {
                                       params.x = ix + (int) dx;
                                       params.y = iy + (int) dy;
                                       try { wm.updateViewLayout(bubbleView, params); } catch (Exception e) {}
@@ -1721,6 +1763,7 @@ jobs:
                                   if (gesture && !moved) {
                                       if (ev.getAction() == MotionEvent.ACTION_UP
                                               && Math.max(Math.abs(lastDx), Math.abs(lastDy)) > dpToPx(28)) runSwipe(lastDx, lastDy);
+                                      springBack(ix, iy);
                                   } else if (moved) {
                                       int px = (int) (params.x * 100f / Math.max(1, sw - params.width));
                                       int py = (int) (params.y * 100f / Math.max(1, sh - params.height));
@@ -2394,7 +2437,6 @@ jobs:
                   Drawable top = mbgBmp != null ? new BitmapDrawable(getResources(), mbgBmp) : new ColorDrawable(mbg());
                   return new LayerDrawable(new Drawable[]{new ColorDrawable(0xFF000000), top});
               }
-
               // reads a saved picture when its switch ("pre"+"Img") is on
               Bitmap loadSrc(String pre, String file) {
                   if (!sp.getBoolean(pre + "Img", false)) return null;
@@ -5927,7 +5969,7 @@ jobs:
                       plusOpen = false;
                       addFolderDialog(new ArrayList<String>());
                   }));
-                  FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(230), -2, Gravity.RIGHT | Gravity.TOP);
+                  FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.RIGHT | Gravity.TOP);
                   lp.setMargins(0, dp(4), dp(4), 0);
                   wrap.addView(m, lp);
 
@@ -7270,7 +7312,14 @@ jobs:
               View bubblePage(final int fg) {
                   LinearLayout r = vbox();
                   r.addView(topBar(t("حباب", "Bubble"), fg));
+                  final boolean bubLau = sp.getBoolean("bub_launcher", true);
                   final boolean bubAct = sp.getBoolean("bub_act_on", false);
+                  r.addView(row(0xFF3D7BF7, "🏠", t("لانچر", "Launcher"),
+                          t("با زدن روی حباب، برنامه لانچر باز شود", "Tapping the bubble opens the launcher app"),
+                          bubLau ? 3 : 2, fg, v -> {
+                      sp.edit().putBoolean("bub_launcher", !bubLau).apply();
+                      show();
+                  }));
                   r.addView(row(0xFFEF6C00, "⚡", t("عملکرد", "Actions"),
                           t("با زدن روی حباب، لیست عملکردها باز شود؛ با زدن روی نام برنامه فقط آخرین عملکرد آن اجرا می‌شود",
                                   "Tapping the bubble opens the action list; tapping an app name runs only its last action"),
@@ -7420,11 +7469,11 @@ jobs:
               // bubble moves: four boxes (up, left, down, right); each opens the app chosen for that direction
               View swipeGroup(final int fg) {
                   return accordionGroupFaded(0xFF00ACC1, "↕", t("حرکات حباب", "Bubble moves"), fg, 0.6f, () -> {
-                      String[] keys = {"swipe_up", "swipe_left", "swipe_down", "swipe_right"};
-                      String[] arrows = {"↑", "←", "↓", "→"};
-                      int[] dots = {0xFF42A5F5, 0xFF26A69A, 0xFFFF7043, 0xFFAB47BC};
-                      View[] its = new View[4];
-                      for (int i = 0; i < 4; i++) {
+                      String[] keys = {"swipe_left", "swipe_down", "swipe_right"};
+                      String[] arrows = {"←", "↓", "→"};
+                      int[] dots = {0xFF26A69A, 0xFFFF7043, 0xFFAB47BC};
+                      View[] its = new View[3];
+                      for (int i = 0; i < 3; i++) {
                           final String k = keys[i];
                           String pkg = sp.getString(k, "");
                           String nm = (pkg == null || pkg.isEmpty() || !installed(pkg)) ? "" : label(pkg);
