@@ -8066,7 +8066,81 @@ jobs:
            }
 
            // ---------- bubble actions: up to 20 saved actions ----------
+           // selection of several items: hold an item for one second (without moving it), then tick the others
+           final Set<Integer> selIdx = new HashSet<>();
+           boolean selMode = false;
+           String selKey = "";
+           IntConsumer selHook = null;
+
+           String selScope() { return page + "|" + fSrc + "|" + Arrays.toString(fPath) + "|" + fDir + "|" + swDir; }
+
+           // a page that is shown anew starts without a selection
+           void selCheck() {
+            String cur = selScope();
+            if (!cur.equals(selKey)) { selKey = cur; selIdx.clear(); selMode = false; }
+            selHook = i -> { if (selMode) selToggle(i); else { selMode = true; selIdx.add(i); } show(); };
+           }
+
+           void selToggle(int i) {
+            if (!selIdx.remove(i)) selIdx.add(i);
+            if (selIdx.isEmpty()) selMode = false;
+           }
+
+           // the bar on top of a list while items are selected: cancel, count, delete
+           View selBar(final int fg, final Runnable onDelete) {
+            LinearLayout b = new LinearLayout(this);
+            b.setGravity(Gravity.CENTER_VERTICAL);
+            b.setPadding(dp(12), dp(6), dp(8), dp(6));
+            b.setBackground(boxBg(light() ? 0x14000000 : 0x1AFFFFFF, BOX_R));
+            TextView x = new TextView(this);
+            x.setText("✕");
+            x.setTextSize(18);
+            x.setTextColor(fg);
+            x.setPadding(dp(4), 0, dp(12), 0);
+            x.setOnClickListener(v -> { selIdx.clear(); selMode = false; show(); });
+            b.addView(x);
+            TextView n = new TextView(this);
+            n.setText(t("انتخاب‌شده: ", "Selected: ") + selIdx.size());
+            n.setTextColor(fg);
+            n.setTextSize(14);
+            b.addView(n, new LinearLayout.LayoutParams(0, -2, 1));
+            b.addView(btn(t("حذف", "Delete") + " (" + selIdx.size() + ")", 0xFFE53935, v -> onDelete.run()));
+            return b;
+           }
+
+           // deletes the ticked items of a folder (or of the bubble moves); folders go with what is inside them
+           void selDeleteKids() {
+            final List<Integer> idx = new ArrayList<>(selIdx);
+            Collections.sort(idx, Collections.reverseOrder());
+            new AlertDialog.Builder(this).setTitle(t("حذف", "Delete"))
+              .setMessage(t("موارد انتخاب‌شده حذف شوند؟ پوشه‌ها همراه محتویاتشان حذف می‌شوند.",
+                "Delete the selected items? Folders are deleted with what is inside them."))
+              .setPositiveButton(t("حذف", "Delete"), (d, w) -> {
+               fEdit(l -> { for (int i : idx) if (i < l.size()) l.remove(i); });
+               selIdx.clear(); selMode = false;
+               show();
+              }).setNegativeButton(t("لغو", "Cancel"), null).show();
+           }
+
+           // deletes the ticked slots of the main actions page
+           void selDeleteSlots() {
+            final List<Integer> idx = new ArrayList<>(selIdx);
+            new AlertDialog.Builder(this).setTitle(t("حذف", "Delete"))
+              .setMessage(t("عملکردهای انتخاب‌شده حذف شوند؟ پوشه‌ها همراه محتویاتشان حذف می‌شوند.",
+                "Delete the selected actions? Folders are deleted with what is inside them."))
+              .setPositiveButton(t("حذف", "Delete"), (d, w) -> {
+               BubbleActs.Act[] acts = BubbleActs.load(sp);
+               SharedPreferences.Editor ed = sp.edit();
+               for (int i : idx) { acts[i] = null; ed.remove("bub_on_s" + i); }
+               ed.apply();
+               BubbleActs.save(sp, acts);
+               selIdx.clear(); selMode = false;
+               show();
+              }).setNegativeButton(t("لغو", "Cancel"), null).show();
+           }
+
            View actsPage(final int fg) {
+            selCheck();
             LinearLayout r = vbox();
             r.addView(topBar(t("عملکردهای حباب", "Bubble actions"), fg));
             TextView hint = new TextView(this);
@@ -8077,6 +8151,7 @@ jobs:
             hint.setAlpha(0.65f);
             hint.setPadding(dp(4), dp(10), dp(4), 0);
             r.addView(hint);
+            if (selMode) r.addView(selBar(fg, () -> selDeleteSlots()));
             final float oldFade = boxFade;
             boxFade = 0.6f; // the slots are secondary (fainter) boxes
             final BubbleActs.Act[] acts = BubbleActs.load(sp);
@@ -8127,6 +8202,7 @@ jobs:
            }
 
            void actSlotClick(final int slot) {
+            if (selMode) { if (BubbleActs.load(sp)[slot] != null) selToggle(slot); show(); return; }
             final BubbleActs.Act[] acts = BubbleActs.load(sp);
             final BubbleActs.Act a = acts[slot];
             if (a == null) {
@@ -8331,6 +8407,7 @@ jobs:
            }
 
            void fKidClick(final int k) {
+            if (selMode) { selToggle(k); show(); return; }
             final List<BubbleActs.Act> ks = fKids();
             if (k >= ks.size()) return;
             final BubbleActs.Act x = ks.get(k);
@@ -8361,6 +8438,7 @@ jobs:
            }
 
            View folderEditPage(final int fg) {
+            selCheck();
             final BubbleActs.Act root = fRoot();
             LinearLayout r = vbox();
             BubbleActs.Act cur = root == null ? null : BubbleActs.folderAt(root, fPath);
@@ -8372,6 +8450,7 @@ jobs:
             r.addView(pageHint(fg, t("برای جابه‌جایی، هر مورد را یک ثانیه نگه دارید و بکشید. با + برنامه یا پوشه جدید اضافه کنید (حداکثر ۳۰ مورد). پوشه‌ها را هم می‌توانید باز کنید و داخلشان مورد بگذارید.",
               "To move an item, hold it for one second and drag. Use + to add apps or folders (up to 30). Folders can be opened and filled too.")));
             List<BubbleActs.Act> kids = fKids();
+            if (selMode) r.addView(selBar(fg, () -> selDeleteKids()));
             final float oldFade = boxFade;
             boxFade = 0.6f;
             final List<View> rows = new ArrayList<>();
@@ -8387,7 +8466,7 @@ jobs:
              r.addView(rv);
              rows.add(rv);
             }
-            if (kids.size() < BubbleActs.FMAX) {
+            if (kids.size() < BubbleActs.FMAX && !selMode) {
              r.addView(row(0xFF9E9E9E, "+", t("افزودن", "Add"), kids.size() + " / " + BubbleActs.FMAX, 0, fg,
                v -> fAddChooser()));
             }
@@ -8541,6 +8620,7 @@ jobs:
              } else {
               v.animate().translationY(0).scaleX(1f).scaleY(1f).alpha(1f).translationZ(0).setDuration(140).start();
               for (View o : rows) if (o != v) o.animate().translationY(0).setDuration(140).start();
+              if (ok && to == from && selHook != null) selHook.accept(from);
               v.setPressed(false);
              }
             }
